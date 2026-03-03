@@ -51,9 +51,7 @@ class StorageNode(nn.Module):
         if self.state.numel() == 0 or self.state.shape[0] != batch_size:
             self.state = torch.zeros(batch_size, self.dim, device=self.recurrent_weights.device)
 
-        # IMPORTANT: Detach state to prevent backward through old graphs when training in batches
-        prev_state = self.state.detach()
-
+        prev_state = self.state
 
         # Linear integration
         recurrent_component = prev_state @ self.recurrent_weights.T
@@ -71,7 +69,7 @@ class StorageNode(nn.Module):
         return new_state
 
     def reset_state(self) -> None:
-        """Resets memory state."""
+        """Resets memory state (and breaks the backward graph for the next sequence)."""
         if self.state.numel() > 0:
-            self.state.zero_()
+            self.state = torch.zeros_like(self.state)
 

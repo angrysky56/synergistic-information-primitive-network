@@ -42,30 +42,51 @@ class CognitiveTrainer:
             "loss": 0.0, "task_loss": 0.0, "ais": 0.0, "te": 0.0, "synergy": 0.0
         }
 
-        prev_encoded = None
-        prev_context = None
+        for data_seq, target_seq in dataloader:
+            data_seq = data_seq.to(self.device)
+            target_seq = target_seq.to(self.device)
 
-        for data, targets in dataloader:
-            data, targets = data.to(self.device), targets.to(self.device)
             self.optimizer.zero_grad()
 
-            outputs = self.model(data)
+            # Forward pass unrolls over the entire sequence
+            # outputs_seq is a list of dictionaries, one per timestep
+            outputs_seq = self.model(data_seq)
 
-            if prev_encoded is not None:
-                outputs["prev_encoded"] = prev_encoded.detach()
-            if prev_context is not None:
-                outputs["prev_context_state"] = prev_context.detach()
+            total_loss = torch.tensor(0.0, device=self.device)
+            seq_len = len(outputs_seq)
 
-            prev_encoded = outputs["encoded"]
-            prev_context = outputs["context_state"]
+            # Accumulate temporal losses (BPTT)
+            for t in range(seq_len):
+                current_outputs = outputs_seq[t]
 
-            loss_dict = self.loss_module(outputs, targets, self.lambdas)
-            loss_dict["loss"].backward()
+                # Link previous states for Information Theory metrics if t > 0
+                if t > 0:
+                    current_outputs["prev_encoded"] = outputs_seq[t-1]["encoded"]
+                    current_outputs["prev_context_state"] = outputs_seq[t-1]["context_state"]
+                    current_outputs["prev_ff_signal"] = outputs_seq[t-1]["ff_signal"]
+                    current_outputs["prev_final_rep"] = outputs_seq[t-1]["final_rep"]
+
+                # We only want the task_loss to apply at the final timestep
+                # The loss_module handles the targets. We pass the targets for timestep t.
+                current_targets = target_seq[:, t, :]
+
+                loss_dict = self.loss_module(current_outputs, current_targets, self.lambdas)
+
+                # Zero out task loss for intermediate steps, keep only IT rewards
+                if t < seq_len - 1:
+                    loss_dict["loss"] = loss_dict["loss"] - loss_dict["task_loss"]
+                    loss_dict["task_loss"] = torch.tensor(0.0, device=self.device)
+
+                total_loss = total_loss + loss_dict["loss"]
+
+                # Accumulate metrics for logging
+                for k in epoch_metrics:
+                    if k in loss_dict:
+                        epoch_metrics[k] += loss_dict[k].item() / seq_len
+
+            # Single backward pass through the entire unrolled sequence
+            total_loss.backward()
             self.optimizer.step()
-
-            for k in epoch_metrics:
-                if k in loss_dict:
-                    epoch_metrics[k] += loss_dict[k].item()
 
         for k in epoch_metrics:
             epoch_metrics[k] /= len(dataloader)

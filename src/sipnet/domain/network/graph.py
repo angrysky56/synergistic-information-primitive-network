@@ -48,12 +48,12 @@ class SIPNet(nn.Module):
         # 3. Output Decoder
         self.decoder = nn.Linear(hidden_dim, output_dim)
 
-    def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
+    def forward_step(self, x_t: torch.Tensor) -> dict[str, torch.Tensor]:
         """
         Operational pipeline: Encoding -> Buffering -> Routing Query -> Integration.
         """
         # Step 1: Sensory Encoding
-        encoded = self.encoder(x)
+        encoded = self.encoder(x_t)
 
         # Step 2: Buffering Core Context
         # (In a real sequence, this would be conditional. Here we buffer the current state)
@@ -87,6 +87,27 @@ class SIPNet(nn.Module):
             "context_state": context_state,
             "final_rep": final_rep
         }
+
+    def forward(self, x_seq: torch.Tensor) -> list[dict[str, torch.Tensor]]:
+        """
+        Unrolls the computation over the temporal sequence dimension.
+        x_seq expected shape: [batch_size, seq_len, input_dim]
+        """
+        seq_len = x_seq.size(1)
+        outputs_over_time = []
+
+        # Ensure fresh memory at the start of every sequence
+        self.reset_memory()
+
+        for t in range(seq_len):
+            # Extract input for the current timestep: shape [batch_size, input_dim]
+            x_t = x_seq[:, t, :]
+
+            # Step the graph
+            step_output = self.forward_step(x_t)
+            outputs_over_time.append(step_output)
+
+        return outputs_over_time
 
     def reset_memory(self) -> None:
         """Resets all storage nodes."""

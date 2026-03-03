@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 
 from ...infrastructure.information_theory.ais_estimator import estimate_ais
-from ...infrastructure.information_theory.pid_estimator import estimate_pid
+from ...infrastructure.information_theory.pid_estimator import estimate_pid_renyi
 from ...infrastructure.information_theory.te_estimator import estimate_te
 
 
@@ -44,20 +44,19 @@ class CompositeLoss(nn.Module):
 
         # 3. TE Reward (Transfer Buses)
         te_val = torch.tensor(0.0, device=l_task.device)
-        # TE involves estimating information flow.
-        # For the demo, we'll calculate TE from FF bus input to Synergy Hub input
-        if "prev_encoded" in outputs:
+        # Tracking true TE mathematically: Info transitting from past memory into current decision outputs.
+        if "prev_context_state" in outputs and "prev_final_rep" in outputs:
             # Check for batch size mismatch
-            if outputs["prev_encoded"].shape[0] == outputs["ff_signal"].shape[0]:
+            if outputs["prev_context_state"].shape[0] == outputs["final_rep"].shape[0]:
                 te_val = estimate_te(
-                    source_past=outputs["prev_encoded"],
-                    target_present=outputs["ff_signal"],
-                    target_past=outputs["ff_signal"] # Approximated
+                    source_past=outputs["prev_context_state"],
+                    target_present=outputs["final_rep"],
+                    target_past=outputs["prev_final_rep"]
                 )
 
         # 4. Synergy Reward (Synergy Hubs)
         # Synergy(Encoding, Context -> Final Representation)
-        pid_results = estimate_pid(
+        pid_results = estimate_pid_renyi(
             s1=outputs["ff_signal"],
             s2=outputs["ctx_signal"],
             target=outputs["final_rep"]

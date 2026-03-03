@@ -1,9 +1,8 @@
 import torch
 import pytest
-from sipnet.infrastructure.information_theory.kernel_utils import estimate_mutual_information_renyi
-from sipnet.infrastructure.information_theory.ais_estimator import estimate_ais
+from sipnet.infrastructure.information_theory.ais_estimator import estimate_mutual_information_renyi, estimate_ais
 from sipnet.infrastructure.information_theory.te_estimator import estimate_te
-from sipnet.infrastructure.information_theory.pid_estimator import estimate_pid
+from sipnet.infrastructure.information_theory.pid_estimator import estimate_pid_renyi
 
 def test_mi_renyi_differentiability():
     x = torch.randn(10, 5, requires_grad=True)
@@ -49,12 +48,12 @@ def test_pid_renyi():
     # Target is simple sum (Redundant/Synergistic)
     target = s1 + s2 + torch.randn(100, 5) * 0.1
 
-    results = estimate_pid(s1, s2, target)
+    results = estimate_pid_renyi(s1, s2, target)
 
     assert results['synergy'] >= 0.0
     assert results['redundancy'] >= 0.0
-    assert results['unique_1'] >= 0.0
-    assert results['unique_2'] >= 0.0
+    assert results['unique1'] >= 0.0
+    assert results['unique2'] >= 0.0
 
     # In a simple additive case, synergy should be high if target
     # provides information not in either source alone
