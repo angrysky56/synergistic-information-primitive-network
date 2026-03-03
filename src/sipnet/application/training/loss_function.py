@@ -32,6 +32,12 @@ class CompositeLoss(nn.Module):
         # 1. Task Loss
         l_task = self.task_loss_fn(outputs["logits"], targets)
 
+        # In sequential contexts with padded targets, loss functions like CrossEntropy
+        # may return NaN if all targets in the batch are ignored at this timestep.
+        if torch.isnan(l_task):
+            # We preserve gradient flow compatibility by mimicking a zero-loss state
+            l_task = torch.tensor(0.0, device=l_task.device)
+
         # 2. AIS Reward (Calculated on Storage Nodes)
         # Assuming we have saved state from t-1 in outputs or internal buffer
         # For simplicity in this implementation, we compare current context to previous context

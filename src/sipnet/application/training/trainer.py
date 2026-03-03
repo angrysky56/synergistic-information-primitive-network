@@ -68,12 +68,20 @@ class CognitiveTrainer:
 
                 # We only want the task_loss to apply at the final timestep
                 # The loss_module handles the targets. We pass the targets for timestep t.
-                current_targets = target_seq[:, t, :]
+                if target_seq.dim() == 3:
+                    current_targets = target_seq[:, t, :]
+                else:
+                    current_targets = target_seq[:, t]
 
                 loss_dict = self.loss_module(current_outputs, current_targets, self.lambdas)
 
-                # Zero out task loss for intermediate steps, keep only IT rewards
-                if t < seq_len - 1:
+                # For classification tasks with padded intervals, trust ignore_index.
+                # For continuous sequences (XOR), zero out intermediate steps unless it's the final target.
+                compute_task_loss = True
+                if target_seq.dtype != torch.long and t < seq_len - 1:
+                    compute_task_loss = False
+
+                if not compute_task_loss:
                     loss_dict["loss"] = loss_dict["loss"] - loss_dict["task_loss"]
                     loss_dict["task_loss"] = torch.tensor(0.0, device=self.device)
 

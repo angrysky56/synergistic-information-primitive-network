@@ -18,15 +18,20 @@ class SIPNet(nn.Module):
         hidden_dim: int,
         output_dim: int,
         num_storage_nodes: int = 1,
-        num_synergy_hubs: int = 1
+        num_synergy_hubs: int = 1,
+        use_embedding: bool = False
     ):
         super().__init__()
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
         self.output_dim = output_dim
+        self.use_embedding = use_embedding
 
         # 1. Input Encoder
-        self.encoder = nn.Linear(input_dim, hidden_dim)
+        if self.use_embedding:
+            self.encoder = nn.Embedding(num_embeddings=input_dim, embedding_dim=hidden_dim)
+        else:
+            self.encoder = nn.Linear(input_dim, hidden_dim)
 
         # 2. Information Processing Primitives
         # Storage Nodes (Memory)
@@ -100,8 +105,11 @@ class SIPNet(nn.Module):
         self.reset_memory()
 
         for t in range(seq_len):
-            # Extract input for the current timestep: shape [batch_size, input_dim]
-            x_t = x_seq[:, t, :]
+            # Extract input for the current timestep
+            if self.use_embedding:
+                x_t = x_seq[:, t]
+            else:
+                x_t = x_seq[:, t, :]
 
             # Step the graph
             step_output = self.forward_step(x_t)

@@ -62,6 +62,7 @@ The values of $\lambda$ dynamically scale to drive cognitive development.
 
 We will use a test-driven development (TDD) flow focusing on library adoption for infrastructure layers.
 
-1. **Environment**: `uv` will be used for package management. We will require `torch` (for network design). We must survey math libraries for PID/TE calculations to avoid NIH (Not Invented Here) syndrome.
+1. **Environment**: `uv` will be used for package management. Custom PyTorch kernel metrics compute PID/TE calculations robustly without reliance on third party log-determinant matrix mathematics.
 2. **Implementation Order**: Infrastructure Estimators $\rightarrow$ Domain Nodes $\rightarrow$ Core SIP-Net Graph Assembly $\rightarrow$ Training Module.
-3. **Testing Goals**: Isolated unit tests ensuring individual modules maximize their theoretical functions, culminating in an integration test replicating an NLP coreference task.
+3. **Testing Goals**: Isolated unit tests ensuring individual modules maximize their theoretical functions, culminating in an integration test replicating Temporal Delays evaluated over sequenced RNN boundaries.
+4. **Target Objective**: Sequential NLP Coreference resolution leveraging text token embedding routing over time logic horizons.

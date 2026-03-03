@@ -41,12 +41,15 @@ cd synergistic-information-primitive-network
 uv sync
 ```
 
-## 🧪 Running the Demo
+## 🧪 Sequence Generation and Benchmarking
+SIP-Net proves mathematically stable routing and nonlinear integration against highly abstract tasks. Utilizing the `train_delayed_xor.py` script validates its functional capabilities by tracking signals over zero-padded data series through Backpropagation Through Time (BPTT).
+
+## 🧪 Running the Delayed XOR Benchmark
 
 You can observe the cognitive development phases in action by running the demonstration script:
 
 ```bash
-uv run scripts/demo_training.py
+uv run scripts/train_delayed_xor.py
 ```
 
 This script generates synthetic data for a cognitive task and logs the specialization metrics (AIS, TE, Synergy) as the model transitions through its training phases. The non-linear matrix estimators dynamically shape the network's structure.
