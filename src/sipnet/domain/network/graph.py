@@ -1,4 +1,3 @@
-
 import torch
 import torch.nn as nn
 
@@ -7,11 +6,12 @@ from ..nodes.synergy_hub import SynergyHub
 from ..nodes.transfer_bus import TransferBus
 
 
-class SIPNet(nn.Module):
+class SIPNet(nn.Module):  # type: ignore
     """
     Synergistic Information Primitive Network (SIP-Net)
     A heterogeneous graph of specialized computational modules.
     """
+
     def __init__(
         self,
         input_dim: int,
@@ -19,36 +19,47 @@ class SIPNet(nn.Module):
         output_dim: int,
         num_storage_nodes: int = 1,
         num_synergy_hubs: int = 1,
-        use_embedding: bool = False
-    ):
+        num_parallel_buses: int = 1,
+        use_embedding: bool = False,
+    ) -> None:
         super().__init__()
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
         self.output_dim = output_dim
+        self.num_parallel_buses = num_parallel_buses
         self.use_embedding = use_embedding
 
         # 1. Input Encoder
         if self.use_embedding:
-            self.encoder = nn.Embedding(num_embeddings=input_dim, embedding_dim=hidden_dim)
+            self.encoder = nn.Embedding(
+                num_embeddings=input_dim, embedding_dim=hidden_dim
+            )
         else:
             self.encoder = nn.Linear(input_dim, hidden_dim)
 
         # 2. Information Processing Primitives
         # Storage Nodes (Memory)
-        self.storage_nodes = nn.ModuleList([
-            StorageNode(hidden_dim, hidden_dim) for _ in range(num_storage_nodes)
-        ])
+        self.storage_nodes = nn.ModuleList(
+            [StorageNode(hidden_dim, hidden_dim) for _ in range(num_storage_nodes)]
+        )
 
         # Transfer Buses (Routing)
-        # Feedforward Bus: Encoder -> Synergy Hub
-        self.ff_bus = TransferBus(hidden_dim, hidden_dim)
-        # Top-Down Bus: Storage Node -> Synergy Hub
-        self.td_bus = TransferBus(hidden_dim, hidden_dim)
+        # Scaled dynamically to test path pruning
+        self.ff_buses = nn.ModuleList(
+            [TransferBus(hidden_dim, hidden_dim) for _ in range(num_parallel_buses)]
+        )
+
+        self.td_buses = nn.ModuleList(
+            [TransferBus(hidden_dim, hidden_dim) for _ in range(num_parallel_buses)]
+        )
 
         # Synergy Hubs (Integration/Logic)
-        self.synergy_hubs = nn.ModuleList([
-            SynergyHub(hidden_dim, hidden_dim, hidden_dim) for _ in range(num_synergy_hubs)
-        ])
+        self.synergy_hubs = nn.ModuleList(
+            [
+                SynergyHub(hidden_dim, hidden_dim, hidden_dim)
+                for _ in range(num_synergy_hubs)
+            ]
+        )
 
         # 3. Output Decoder
         self.decoder = nn.Linear(hidden_dim, output_dim)
@@ -69,14 +80,26 @@ class SIPNet(nn.Module):
         # Aggregate storage context (averaging for simplicity in bivariate PID)
         context_state = torch.mean(torch.stack(storage_outputs), dim=0)
 
-        # Step 3: Routing via Transfer Buses
-        ff_signal = self.ff_bus(encoded)
-        ctx_signal = self.td_bus(context_state)
+        # Step 3: Routing via Parallel Transfer Buses
+        # Each bus generates an independent signal vector representing a routing pathway
+        ff_signals = []
+        for bus in self.ff_buses:
+            ff_signals.append(bus(encoded))
+
+        ctx_signals = []
+        for bus in self.td_buses:
+            ctx_signals.append(bus(context_state))
+
+        # We merge all active bus combinations into generalized averages before Synergy Hub
+        # processing
+        # In a fully sparse network, dead buses carrying 0 variance would drop out naturally.
+        agg_ff_signal = torch.sum(torch.stack(ff_signals), dim=0)
+        agg_ctx_signal = torch.sum(torch.stack(ctx_signals), dim=0)
 
         # Step 4: Synergistic Computation
         hub_outputs = []
         for hub in self.synergy_hubs:
-            hub_outputs.append(hub(ff_signal, ctx_signal))
+            hub_outputs.append(hub(agg_ff_signal, agg_ctx_signal))
 
         final_rep = torch.mean(torch.stack(hub_outputs), dim=0)
 
@@ -87,10 +110,13 @@ class SIPNet(nn.Module):
         return {
             "logits": logits,
             "encoded": encoded,
-            "ff_signal": ff_signal,
-            "ctx_signal": ctx_signal,
+            # Export array of individual bus traces to Loss calculations
+            "ff_signals": ff_signals,
+            "ctx_signals": ctx_signals,
+            "agg_ff_signal": agg_ff_signal,
+            "agg_ctx_signal": agg_ctx_signal,
             "context_state": context_state,
-            "final_rep": final_rep
+            "final_rep": final_rep,
         }
 
     def forward(self, x_seq: torch.Tensor) -> list[dict[str, torch.Tensor]]:

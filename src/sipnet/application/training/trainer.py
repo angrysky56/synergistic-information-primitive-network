@@ -1,4 +1,3 @@
-
 import torch
 from torch.utils.data import DataLoader
 
@@ -10,13 +9,14 @@ class CognitiveTrainer:
     """
     Trainer for SIP-Net that implements the three phases of cognitive development.
     """
+
     def __init__(
         self,
         model: SIPNet,
         optimizer: torch.optim.Optimizer,
         loss_module: CompositeLoss,
-        device: str = "cpu"
-    ):
+        device: str = "cpu",
+    ) -> None:
         self.model = model
         self.optimizer = optimizer
         self.loss_module = loss_module
@@ -39,7 +39,11 @@ class CognitiveTrainer:
     def train_epoch(self, dataloader: DataLoader) -> dict[str, float]:
         self.model.train()
         epoch_metrics = {
-            "loss": 0.0, "task_loss": 0.0, "ais": 0.0, "te": 0.0, "synergy": 0.0
+            "loss": 0.0,
+            "task_loss": 0.0,
+            "ais": 0.0,
+            "te": 0.0,
+            "synergy": 0.0,
         }
 
         for data_seq, target_seq in dataloader:
@@ -61,10 +65,14 @@ class CognitiveTrainer:
 
                 # Link previous states for Information Theory metrics if t > 0
                 if t > 0:
-                    current_outputs["prev_encoded"] = outputs_seq[t-1]["encoded"]
-                    current_outputs["prev_context_state"] = outputs_seq[t-1]["context_state"]
-                    current_outputs["prev_ff_signal"] = outputs_seq[t-1]["ff_signal"]
-                    current_outputs["prev_final_rep"] = outputs_seq[t-1]["final_rep"]
+                    current_outputs["prev_encoded"] = outputs_seq[t - 1]["encoded"]
+                    current_outputs["prev_context_state"] = outputs_seq[t - 1][
+                        "context_state"
+                    ]
+                    current_outputs["prev_ff_signal"] = outputs_seq[t - 1].get(
+                        "ff_signal", outputs_seq[t - 1].get("agg_ff_signal")
+                    )
+                    current_outputs["prev_final_rep"] = outputs_seq[t - 1]["final_rep"]
 
                 # We only want the task_loss to apply at the final timestep
                 # The loss_module handles the targets. We pass the targets for timestep t.
@@ -73,10 +81,13 @@ class CognitiveTrainer:
                 else:
                     current_targets = target_seq[:, t]
 
-                loss_dict = self.loss_module(current_outputs, current_targets, self.lambdas)
+                loss_dict = self.loss_module(
+                    current_outputs, current_targets, self.lambdas
+                )
 
                 # For classification tasks with padded intervals, trust ignore_index.
-                # For continuous sequences (XOR), zero out intermediate steps unless it's the final target.
+                # For continuous sequences (XOR), zero out intermediate steps unless it's the
+                # final target.
                 compute_task_loss = True
                 if target_seq.dtype != torch.long and t < seq_len - 1:
                     compute_task_loss = False
@@ -87,10 +98,22 @@ class CognitiveTrainer:
 
                 total_loss = total_loss + loss_dict["loss"]
 
-                # Accumulate metrics for logging
-                for k in epoch_metrics:
-                    if k in loss_dict:
-                        epoch_metrics[k] += loss_dict[k].item() / seq_len
+                total_loss = total_loss + loss_dict["loss"]
+
+                # Dynamically accumulate metrics for logging
+                for k, v in loss_dict.items():
+                    # Handle single scalar tensors
+                    if isinstance(v, torch.Tensor) and v.dim() == 0:
+                        if k not in epoch_metrics:
+                            epoch_metrics[k] = 0.0
+                        epoch_metrics[k] += v.item() / seq_len
+                    # Handle lists of tensors (like te_buses)
+                    elif isinstance(v, list):
+                        for idx, v_item in enumerate(v):
+                            list_k = f"{k}_{idx}"
+                            if list_k not in epoch_metrics:
+                                epoch_metrics[list_k] = 0.0
+                            epoch_metrics[list_k] += v_item.item() / seq_len
 
             # Single backward pass through the entire unrolled sequence
             total_loss.backward()
