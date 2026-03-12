@@ -42,119 +42,101 @@ class CompositeLoss(nn.Module):  # type: ignore
             # We preserve gradient flow compatibility by mimicking a zero-loss state
             l_task = torch.tensor(0.0, device=l_task.device)
 
-        # 2. AIS Reward (Calculated on Storage Nodes)
-        # Assuming we have saved state from t-1 in outputs or internal buffer
-        # For simplicity in this implementation, we compare current context to previous context
-        # (Alternatively, compare state to its own past if sequence is preserved)
-        ais_val = torch.tensor(0.0, device=l_task.device)
-        if "prev_context_state" in outputs:
-            # Check for batch size mismatch (e.g. final batch of epoch)
-            if (
-                outputs["prev_context_state"].shape[0]
-                == outputs["context_state"].shape[0]
-            ):
-                ais_val = estimate_ais(
-                    outputs["prev_context_state"], outputs["context_state"]
-                )
+        total_ais = torch.tensor(0.0, device=l_task.device)
+        total_te = torch.tensor(0.0, device=l_task.device)
+        total_synergy = torch.tensor(0.0, device=l_task.device)
+        total_l1 = torch.tensor(0.0, device=l_task.device)
+        total_redundancy = torch.tensor(0.0, device=l_task.device)
+        total_cross_bus_red = torch.tensor(0.0, device=l_task.device)
 
-        # 3. TE Reward (Transfer Buses)
-        te_val = torch.tensor(0.0, device=l_task.device)
-        l1_penalty = torch.tensor(0.0, device=l_task.device)
+        num_layers = len(outputs["layer_outputs"])
 
-        # Tracking true TE mathematically across all active buses
-        if (
-            "prev_context_state" in outputs
-            and "prev_final_rep" in outputs
-            and "ctx_signals" in outputs
-        ):
-            # Check for batch size mismatch
-            if outputs["prev_context_state"].shape[0] == outputs["final_rep"].shape[0]:
-                te_vals = []
-                for bus_output in outputs["ctx_signals"]:
-                    te_vals.append(
-                        estimate_te(
-                            source_past=outputs["prev_context_state"],
-                            target_present=bus_output,  # Evaluate TE across bus output
-                            target_past=outputs["prev_final_rep"],
-                        )
+        # Iterate through every SIPLayer to calculate information flow
+        for l_idx in range(num_layers):
+            layer_out = outputs["layer_outputs"][l_idx]
+
+            # 1. AIS
+            if "prev_layer_outputs" in outputs:
+                prev_layer_out = outputs["prev_layer_outputs"][l_idx]
+                if (
+                    prev_layer_out["context_state"].shape[0]
+                    == layer_out["context_state"].shape[0]
+                ):
+                    total_ais = total_ais + estimate_ais(
+                        prev_layer_out["context_state"], layer_out["context_state"]
                     )
 
-                    # Apply L1 structural penalty to the bus signal itself (metabolic cost)
-                    l1_penalty = l1_penalty + torch.abs(bus_output).mean()
+            # 2. TE & L1 Cost
+            if "prev_layer_outputs" in outputs:
+                prev_layer_out = outputs["prev_layer_outputs"][l_idx]
+                if (
+                    prev_layer_out["context_state"].shape[0]
+                    == layer_out["final_rep"].shape[0]
+                ):
+                    for bus_output in layer_out["ctx_signals"]:
+                        # Just track L1 cost
+                        total_l1 = total_l1 + torch.abs(bus_output).mean()
 
-                # Evaluate TE reward strictly on the aggregated output.
-                # Avoid summing individual TEs to prevent native scaling incentives.
-                if "agg_ctx_signal" in outputs:
-                    te_val = estimate_te(
-                        source_past=outputs["prev_context_state"],
-                        target_present=outputs["agg_ctx_signal"],
-                        target_past=outputs["prev_final_rep"],
+                    total_te = total_te + estimate_te(
+                        source_past=prev_layer_out["context_state"],
+                        target_present=layer_out["agg_ctx_signal"],
+                        target_past=prev_layer_out["final_rep"],
                     )
-                elif te_vals:
-                    te_val = torch.stack(
-                        te_vals
-                    ).max()  # Fallback: penalize duplicating rewards
+            elif "ctx_signals" in layer_out:
+                for bus_output in layer_out["ctx_signals"]:
+                    total_l1 = total_l1 + torch.abs(bus_output).mean()
 
-        # 4. Synergy Reward (Synergy Hubs)
-        # Synergy(Encoding, Context -> Final Representation)
-        s1_sig = outputs.get("agg_ff_signal", outputs.get("ff_signal"))
-        if s1_sig is None:
-            # Fallback for type safety, should be present in correct flow
-            s1_sig = torch.zeros_like(outputs["final_rep"])
-
-        s2_sig = outputs.get("agg_ctx_signal")
-        if s2_sig is None:
-            s2_sig = (
-                outputs["ctx_signals"][0]
-                if "ctx_signals" in outputs and outputs["ctx_signals"]
-                else outputs["ctx_signal"]
+            # 3. Synergy & Redundancy
+            # Synergy checks mutual info across FF and TD bounds relative to output
+            pid_results = estimate_pid_renyi(
+                s1=layer_out["agg_ff_signal"],
+                s2=layer_out["agg_ctx_signal"],
+                target=layer_out["final_rep"],
             )
+            total_synergy = total_synergy + pid_results["synergy"]
+            total_redundancy = total_redundancy + pid_results["redundancy"]
 
-        pid_results = estimate_pid_renyi(
-            s1=s1_sig,
-            s2=s2_sig,
-            target=outputs["final_rep"],
-        )
-        synergy_val = pid_results["synergy"]
-        redundancy_pen = pid_results["redundancy"]
-
-        cross_bus_redundancy = torch.tensor(0.0, device=l_task.device)
-        if "ctx_signals" in outputs and len(outputs["ctx_signals"]) > 1:
-            for i in range(len(outputs["ctx_signals"]) - 1):
-                pid_bus = estimate_pid_renyi(
-                    s1=outputs["ctx_signals"][i],
-                    s2=outputs["ctx_signals"][i + 1],
-                    target=outputs["final_rep"],
+            if len(layer_out["ctx_signals"]) > 1:
+                layer_cross_red = torch.tensor(0.0, device=l_task.device)
+                for i in range(len(layer_out["ctx_signals"]) - 1):
+                    pid_bus = estimate_pid_renyi(
+                        s1=layer_out["ctx_signals"][i],
+                        s2=layer_out["ctx_signals"][i + 1],
+                        target=layer_out["final_rep"],
+                    )
+                    layer_cross_red = layer_cross_red + pid_bus["redundancy"]
+                total_cross_bus_red = total_cross_bus_red + (
+                    layer_cross_red / (len(layer_out["ctx_signals"]) - 1)
                 )
-                cross_bus_redundancy = cross_bus_redundancy + pid_bus["redundancy"]
 
-            cross_bus_redundancy = cross_bus_redundancy / (
-                len(outputs["ctx_signals"]) - 1
-            )
+        # Average metrics across layers for stable scaling
+        if num_layers > 0:
+            total_ais = total_ais / num_layers
+            total_te = total_te / num_layers
+            total_synergy = total_synergy / num_layers
+            total_l1 = total_l1 / num_layers
+            total_cross_bus_red = total_cross_bus_red / num_layers
+            total_redundancy = total_redundancy / num_layers
 
-        # 5. Combined Loss
-        # We maximize rewards by subtracting them. We minimize penalties by adding them.
-        # Here we add the L1 constraints and Redundancy metrics scaling against the TE rewards
         lambda_te = lambdas.get("te", 0.0)
-
         total_loss = (
             l_task
-            - lambdas.get("ais", 0.0) * ais_val
-            - lambda_te * te_val
-            - lambdas.get("synergy", 0.0) * synergy_val
-            + (lambda_te * 0.1) * l1_penalty  # Metabolic cost of firing
-            + (lambda_te * 2.0)
-            * cross_bus_redundancy  # Penalty for identical structural paths!
+            - lambdas.get("ais", 0.0) * total_ais
+            - lambda_te * total_te
+            - lambdas.get("synergy", 0.0) * total_synergy
+            + (lambda_te * 0.1) * total_l1
+            + (lambda_te * 2.0) * total_cross_bus_red
         )
 
         return {
             "loss": total_loss,
             "task_loss": l_task,
-            "ais": ais_val,
-            "te": te_val,
-            "te_buses": te_vals if "te_vals" in locals() and te_vals else [],
-            "synergy": synergy_val,
-            "redundancy": redundancy_pen,
-            "l1_cost": l1_penalty,
-            "cross_bus_red": cross_bus_redundancy,
+            "ais": total_ais,
+            "te": total_te,
+            "synergy": total_synergy,
+            "redundancy": total_redundancy,
+            "l1_cost": total_l1,
+            "cross_bus_red": total_cross_bus_red,
+            # Placeholder for backwards compatibility reporting
+            "te_buses": [],
         }

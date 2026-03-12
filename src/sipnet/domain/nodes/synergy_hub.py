@@ -8,6 +8,7 @@ class SynergyHub(nn.Module):
     Integrates feedforward sensory data and contextual memory to extract synergistic logic.
     Optimized for Synergistic Information (PID).
     """
+
     def __init__(self, ff_dim: int, ctx_dim: int, output_dim: int):
         super().__init__()
         self.ff_dim = ff_dim
@@ -20,9 +21,9 @@ class SynergyHub(nn.Module):
 
         # Non-linear integration sector (dendritic synthesis)
         self.synthesis = nn.Sequential(
-            nn.Linear(output_dim * 2, output_dim),
+            nn.Linear(output_dim * 3, output_dim),
             nn.ReLU(),
-            nn.Linear(output_dim, output_dim)
+            nn.Linear(output_dim, output_dim),
         )
 
     def forward(self, ff_input: torch.Tensor, ctx_input: torch.Tensor) -> torch.Tensor:
@@ -32,8 +33,10 @@ class SynergyHub(nn.Module):
         ff_features = self.ff_layer(ff_input)
         ctx_features = self.ctx_layer(ctx_input)
 
+        # Interaction feature forces non-linear synergistic combination
+        interaction = ff_features * ctx_features
         # Concatenate and synthesize
-        combined = torch.cat([ff_features, ctx_features], dim=1)
+        combined = torch.cat([ff_features, ctx_features, interaction], dim=1)
         output = self.synthesis(combined)
 
         return output

@@ -65,14 +65,9 @@ class CognitiveTrainer:
 
                 # Link previous states for Information Theory metrics if t > 0
                 if t > 0:
-                    current_outputs["prev_encoded"] = outputs_seq[t - 1]["encoded"]
-                    current_outputs["prev_context_state"] = outputs_seq[t - 1][
-                        "context_state"
+                    current_outputs["prev_layer_outputs"] = outputs_seq[t - 1][
+                        "layer_outputs"
                     ]
-                    current_outputs["prev_ff_signal"] = outputs_seq[t - 1].get(
-                        "ff_signal", outputs_seq[t - 1].get("agg_ff_signal")
-                    )
-                    current_outputs["prev_final_rep"] = outputs_seq[t - 1]["final_rep"]
 
                 # We only want the task_loss to apply at the final timestep
                 # The loss_module handles the targets. We pass the targets for timestep t.

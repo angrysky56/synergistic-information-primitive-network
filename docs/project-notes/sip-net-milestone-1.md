@@ -8,19 +8,22 @@ Here are the most logical frontiers we can push into next:
    We discussed this earlier in the project. Now that SIP-Net can successfully bridge temporal gaps, we can test it in a 1D or 2D maze/navigation environment.
 
 The Goal: The network must navigate a grid where it only sees its immediate surroundings, but must remember where it saw a "key" 50 steps ago to open a "door" later.
-Why it matters: This tests whether SIP-Net can map sequential temporal experiences into a persistent internal spatial map—the biological bedrock of mammalian cognition. 2. Hard NLP (Complex Coreference & Distractors)
-Our current NLP test proves the math works on language, but the dataset is relatively simple. We can upgrade
+Why it matters: This tests whether SIP-Net can map sequential temporal experiences into a persistent internal spatial map—the biological bedrock of mammalian cognition.
 
-SequentialNLPDataset
-to generate chaotic structures.
+2. Hard NLP (Complex Coreference & Distractors)
+   Our current NLP test proves the math works on language, but the dataset is relatively simple. We can upgrade SequentialNLPDataset to generate chaotic structures.
 
 The Goal: Introduce variable sequence lengths and multiple "distractor" entities (e.g., "The dog chased the cat until it got tired, but the bird watched." -> Who is "it"?).
-Why it matters: This will force the network's TE estimators to sift through heavy noise and explicitly route the correct abstract subject, proving SIP-Net can handle the ambiguity of real-world language processing. 3. Hierarchical Graph Scaling (Deep SIP-Net)
-Right now, our graph is "flat": Input -> Storage -> Bus -> Hub -> Output.
+Why it matters: This will force the network's TE estimators to sift through heavy noise and explicitly route the correct abstract subject, proving SIP-Net can handle the ambiguity of real-world language processing.
+
+3. Hierarchical Graph Scaling (Deep SIP-Net)
+   Right now, our graph is "flat": Input -> Storage -> Bus -> Hub -> Output.
 
 The Goal: What happens if the output of a SynergyHub feeds into a new layer of StorageNodes?
-Why it matters: This would allow the network to form "concepts of concepts." It could take raw sensory data, synthesize it into an entity (Layer 1), and then observe how that entity interacts with another entity over time (Layer 2). This is the leap from simple routing to deep, hierarchical reasoning. 4. Head-to-Head Benchmarking
-If you want to start preparing SIP-Net for formal publication or external exposure, we can build a benchmarking suite.
+Why it matters: This would allow the network to form "concepts of concepts." It could take raw sensory data, synthesize it into an entity (Layer 1), and then observe how that entity interacts with another entity over time (Layer 2). This is the leap from simple routing to deep, hierarchical reasoning.
+
+4. Head-to-Head Benchmarking
+   If you want to start preparing SIP-Net for formal publication or external exposure, we can build a benchmarking suite.
 
 The Goal: Pit SIP-Net directly against a standard LSTM, GRU, and a tiny Transformer on the Delayed XOR and NLP tasks.
 Why it matters: It provides the definitive proof that an information-primitive architecture learns patterns that standard backpropagation-through-time networks physically cannot grasp without massive parameter scaling.
