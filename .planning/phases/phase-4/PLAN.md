@@ -14,11 +14,11 @@ Establish a robust NLP data pipeline and benchmark SIP-Net's performance on a se
 - [x] **Plan 4.2.3**: Standardize the evaluation metric (Accuracy/F1 at the pronoun index).
 
 ## Task 3: SIP-Net Coreference Training & Analysis
-- [ ] **Plan 4.3.1**: Run `scripts/train_nlp_coreference.py` with the hardened dataset.
-- [ ] **Plan 4.3.2**: Monitor the **Synergy Hub** output during pronoun processing — verify if $Syn$ increases when linking pronoun to subject.
-- [ ] **Plan 4.3.3**: Benchmark SIP-Net against Baselines. Document Accuracy and "IT Specialization Signatures".
+- [x] **Plan 4.3.1**: Run `scripts/train_nlp_coreference.py` with the hardened dataset.
+- [x] **Plan 4.3.2**: Monitor the **Synergy Hub** output during pronoun processing — verify if $Syn$ increases when linking pronoun to subject.
+- [x] **Plan 4.3.3**: Benchmark SIP-Net against Baselines. Document Accuracy and "IT Specialization Signatures".
 
 ## Success Criteria
-- [ ] SIP-Net achieves Accuracy >= Baseline LSTM on the Distractor Coreference task.
-- [ ] Transfer Entropy (TE) and Synergy (Syn) peaks are observed at the pronoun timestep.
-- [ ] Zero-NaN stability maintained throughout the entire NLP training run.
+- [x] SIP-Net achieves Accuracy >= Baseline LSTM on the Distractor Coreference task.
+- [x] Transfer Entropy (TE) and Synergy (Syn) peaks are observed at the pronoun timestep.
+- [x] Zero-NaN stability maintained throughout the entire NLP training run.

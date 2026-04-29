@@ -8,7 +8,7 @@ from sipnet.infrastructure.information_theory.kernel_utils import (
 )
 
 
-def diagnose_stability():
+def diagnose_stability() -> None:
     print("Diagnosing Matrix-Rényi Stability...")
 
     # 1. Variance Sensitivity

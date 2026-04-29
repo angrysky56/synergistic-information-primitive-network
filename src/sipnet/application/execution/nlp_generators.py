@@ -19,7 +19,14 @@ class SequentialNLPDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
         # Define a synthetic vocabulary
         self.articles = ["The", "A", "the", "a"]
         self.subjects = ["dog", "cat", "robot", "agent", "bird", "human"]
-        self.verbs1 = ["barked", "purred", "processed", "computed", "watched", "followed"]
+        self.verbs1 = [
+            "barked",
+            "purred",
+            "processed",
+            "computed",
+            "watched",
+            "followed",
+        ]
         self.conjunctions = ["until", "before", "while", "and", "because"]
         self.pronouns = ["it", "he", "she"]
         self.verbs2 = ["slept", "halted", "crashed", "rested", "ran", "jumped"]
@@ -47,10 +54,12 @@ class SequentialNLPDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
         for _ in range(self.num_samples):
             # Construct a synthetic sentence with potential distractor
             primary_subj = random.choice(self.subjects)
-            
+
             if self.include_distractors and random.random() > 0.5:
                 # Sentence with distractor: "The [subj1] [verb1] the [subj2] [conj] it [verb2]"
-                distractor_subj = random.choice([s for s in self.subjects if s != primary_subj])
+                distractor_subj = random.choice(
+                    [s for s in self.subjects if s != primary_subj]
+                )
                 sentence = [
                     random.choice(self.articles).capitalize(),
                     primary_subj,
@@ -75,7 +84,9 @@ class SequentialNLPDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
                 pronoun_idx = 4
 
             # Convert to indices
-            indices = torch.tensor([self.word2idx[word] for word in sentence], dtype=torch.long)
+            indices = torch.tensor(
+                [self.word2idx[word] for word in sentence], dtype=torch.long
+            )
             data_seqs.append(indices)
 
             # Create targets: all zeros except at the pronoun where target is primary_subj
@@ -92,14 +103,20 @@ class SequentialNLPDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
         return self.data[idx], self.targets[idx]
 
 
-def nlp_collate_fn(batch: list[tuple[torch.Tensor, torch.Tensor]]) -> tuple[torch.Tensor, torch.Tensor]:
+def nlp_collate_fn(
+    batch: list[tuple[torch.Tensor, torch.Tensor]],
+) -> tuple[torch.Tensor, torch.Tensor]:
     """
     Collate function to pad variable-length sequences.
     """
     data, targets = zip(*batch)
-    
+
     # Pad sequences to the max length in the batch
-    padded_data = torch.nn.utils.rnn.pad_sequence(data, batch_first=True, padding_value=0)
-    padded_targets = torch.nn.utils.rnn.pad_sequence(targets, batch_first=True, padding_value=0)
-    
+    padded_data = torch.nn.utils.rnn.pad_sequence(
+        list(data), batch_first=True, padding_value=0
+    )
+    padded_targets = torch.nn.utils.rnn.pad_sequence(
+        list(targets), batch_first=True, padding_value=0
+    )
+
     return padded_data, padded_targets

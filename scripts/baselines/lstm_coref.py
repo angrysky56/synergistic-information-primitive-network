@@ -1,13 +1,19 @@
+import os
+import sys
+from typing import cast
+
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
-import sys
-import os
 
 # Add src to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../src")))
 
-from sipnet.application.execution.nlp_generators import SequentialNLPDataset, nlp_collate_fn
+from sipnet.application.execution.nlp_generators import (
+    SequentialNLPDataset,
+    nlp_collate_fn,
+)
+
 
 class LSTMCorefBaseline(nn.Module):
     def __init__(self, vocab_size: int, hidden_dim: int, output_dim: int):
@@ -20,16 +26,19 @@ class LSTMCorefBaseline(nn.Module):
         embedded = self.embedding(x)
         output, _ = self.lstm(embedded)
         logits = self.fc(output)
-        return logits
+        return cast(torch.Tensor, logits)
 
-def train_baseline():
+
+def train_baseline() -> None:
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Training LSTM Coref Baseline on {device}...")
 
     # Dataset
     num_samples = 2000
     dataset = SequentialNLPDataset(num_samples=num_samples)
-    dataloader = DataLoader(dataset, batch_size=64, shuffle=True, collate_fn=nlp_collate_fn)
+    dataloader = DataLoader(
+        dataset, batch_size=64, shuffle=True, collate_fn=nlp_collate_fn
+    )
 
     # Model
     model = LSTMCorefBaseline(dataset.vocab_size, 16, dataset.vocab_size).to(device)
@@ -41,20 +50,20 @@ def train_baseline():
         epoch_loss = 0.0
         correct = 0
         total = 0
-        
+
         model.train()
         for x, y in dataloader:
             x, y = x.to(device), y.to(device)
             optimizer.zero_grad()
-            
+
             logits = model(x)
             # Flatten for CrossEntropy: (B*T, C)
             loss = criterion(logits.view(-1, logits.size(-1)), y.view(-1))
             loss.backward()
             optimizer.step()
-            
+
             epoch_loss += loss.item()
-            
+
             # Accuracy at pronoun timestep (where y != 0)
             with torch.no_grad():
                 mask = y != 0
@@ -65,7 +74,10 @@ def train_baseline():
 
         if epoch % 10 == 0:
             acc = correct / total if total > 0 else 0
-            print(f"Epoch {epoch:03d} | Loss: {epoch_loss/len(dataloader):.4f} | Coref Acc: {acc:.4f}")
+            print(
+                f"Epoch {epoch:03d} | Loss: {epoch_loss/len(dataloader):.4f} | Coref Acc: {acc:.4f}"
+            )
+
 
 if __name__ == "__main__":
     train_baseline()

@@ -49,9 +49,7 @@ def run_demo() -> None:
     # 3. Phased Training
     for phase in [1, 2, 3]:
         trainer.set_phase(phase)
-        print(
-            f"\n--- Phase {phase}: Updating lambdas to {trainer.lambdas} ---"
-        )
+        print(f"\n--- Phase {phase}: Updating lambdas to {trainer.lambdas} ---")
 
         for epoch in range(epochs_per_phase):
             metrics = trainer.train_epoch(dataloader)

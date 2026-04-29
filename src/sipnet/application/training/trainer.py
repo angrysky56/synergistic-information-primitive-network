@@ -1,10 +1,16 @@
+import logging
+from pathlib import Path
 from typing import Any
 
 import torch
 from torch.utils.data import DataLoader
 
 from ...domain.network.graph import SIPNet
+from ...domain.network.sip_layer import SIPLayer
+from ..execution.visualizer import plot_metric_matrix, plot_training_dynamics
 from .loss_function import CompositeLoss
+
+logger = logging.getLogger(__name__)
 
 
 class CognitiveTrainer:
@@ -27,6 +33,9 @@ class CognitiveTrainer:
         # Current cognitive phase hyperparameters
         self.lambdas = {"ais": 0.0, "te": 0.0, "synergy": 0.0}
         self.current_phase = 1
+
+        # History tracking
+        self.history: list[dict[str, float]] = []
 
     def set_phase(self, phase: int) -> None:
         """Updates lambdas based on the development phase."""
@@ -117,17 +126,19 @@ class CognitiveTrainer:
                             if "accuracy" not in epoch_metrics:
                                 epoch_metrics["accuracy"] = 0.0
                                 epoch_metrics["_acc_count"] = 0.0
-                            
+
                             logits = current_outputs["logits"]
                             preds = logits.argmax(dim=-1)
-                            correct = (preds[mask] == current_targets[mask]).sum().item()
+                            correct = (
+                                (preds[mask] == current_targets[mask]).sum().item()
+                            )
                             # We average accuracy over the sequence and batches later
                             # But here we just accumulate raw counts for now
                             epoch_metrics["accuracy"] += correct
                             epoch_metrics["_acc_count"] += mask.sum().item()
 
             # Single backward pass through the entire unrolled sequence
-            total_loss.backward()
+            total_loss.backward()  # type: ignore[no-untyped-call]
 
             # Apply gradient clipping to stabilize training, especially for IT loss components
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
@@ -138,9 +149,58 @@ class CognitiveTrainer:
         if num_batches > 0:
             for k in list(epoch_metrics.keys()):
                 if k == "accuracy":
-                    epoch_metrics[k] /= epoch_metrics["_acc_count"]
-                    del epoch_metrics["_acc_count"]
+                    if "_acc_count" in epoch_metrics:
+                        epoch_metrics[k] /= epoch_metrics["_acc_count"]
+                        del epoch_metrics["_acc_count"]
                 elif not k.startswith("_"):
                     epoch_metrics[k] /= num_batches
 
+        self.history.append(epoch_metrics)
         return epoch_metrics
+
+    def save_training_plots(self, output_dir: str | Path) -> None:
+        """Saves training dynamics and model state plots."""
+        out_path = Path(output_dir)
+        out_path.mkdir(parents=True, exist_ok=True)
+
+        # 1. Training Dynamics
+        plot_training_dynamics(
+            self.history,
+            out_path / "training_dynamics.png",
+            title=f"SIP-Net Training (Phase {self.current_phase})",
+        )
+
+        # 2. Layer Connectivity Matrices
+        with torch.no_grad():
+            for i, layer in enumerate(self.model.layers):
+                if not isinstance(layer, SIPLayer):
+                    continue
+                # Storage Node Recurrence
+                # We access the first storage node for simplicity
+                # Storage Node Recurrence
+                if len(layer.storage_nodes) > 0:
+                    node = layer.storage_nodes[0]
+                    # Use getattr to safely access weights for visualization
+                    recurrent_weights = getattr(node, "recurrent_weights", None)
+                    if isinstance(recurrent_weights, torch.Tensor):
+                        weights_np = recurrent_weights.detach().cpu().numpy()
+                        plot_metric_matrix(
+                            weights_np,
+                            title=f"Layer {i} Storage Node Recurrence",
+                            path=out_path / f"layer_{i}_storage_recurrence.png",
+                        )
+
+                # Synergy Hub weights if available
+                if len(layer.synergy_hubs) > 0:
+                    hub = layer.synergy_hubs[0]
+                    # Visualize the feedforward projection weights as a proxy
+                    ff_layer = getattr(hub, "ff_layer", None)
+                    if ff_layer is not None and hasattr(ff_layer, "weight"):
+                        weights_np = ff_layer.weight.detach().cpu().numpy()
+                        plot_metric_matrix(
+                            weights_np,
+                            title=f"Layer {i} Synergy Hub FF Weights",
+                            path=out_path / f"layer_{i}_synergy_weights.png",
+                        )
+
+        logger.info(f"Saved all diagnostic plots to {output_dir}")

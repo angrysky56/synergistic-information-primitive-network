@@ -25,14 +25,14 @@ Verify the cognitive development phases operate without instability.
 ## Milestone 2: NLP Evaluation
 Scaling SIP-Net to real-world semantic tasks.
 
-### Phase 4: Data Pipeline & Coreference Training
-- [ ] **Plan 4.1**: Finalize `nlp_generators.py` for semantic coreference task.
-- [ ] **Plan 4.2**: Train SIP-Net on coreference data and log specialization metrics.
-- [ ] **Plan 4.3**: Benchmark against standard LSTM/Transformer baselines.
+### Phase 4: Data Pipeline & Coreference Training (COMPLETED)
+- [x] **Plan 4.1**: Finalize `nlp_generators.py` for semantic coreference task.
+- [x] **Plan 4.2**: Train SIP-Net on coreference data and log specialization metrics.
+- [x] **Plan 4.3**: Benchmark against standard LSTM/Transformer baselines.
 
-### Phase 5: Interpretability & Final Documentation
+### Phase 5: Interpretability & Final Documentation (ACTIVE)
 - [ ] **Plan 5.1**: Develop visual/log-based diagnostic tools for IPP transparency.
-- [ ] **Plan 5.2**: Update `DEV_DOC.md` and `README.md` with final architecture results.
+- [ ] **Plan 5.2**: Conduct Coreference Interpretability Deep-Dive.
 - [ ] **Plan 5.3**: Project cleanup and release preparation.
 
 ---

@@ -19,7 +19,7 @@ def estimate_te(
     K_sp = compute_normalized_kernel(source_past)
     K_t_past = compute_normalized_kernel(target_past)
 
-    def get_joint_entropy(*ks):
+    def get_joint_entropy(*ks: torch.Tensor) -> torch.Tensor:
         joint_K = ks[0]
         for k in ks[1:]:
             joint_K = joint_K * k

@@ -1,3 +1,5 @@
+from typing import cast
+
 import torch
 
 
@@ -33,7 +35,7 @@ def compute_normalized_kernel(x: torch.Tensor) -> torch.Tensor:
     if trace < 1e-12:
         # Fallback to identity if trace is nearly zero
         return torch.eye(batch_size, device=x.device)
-    
+
     return K / trace
 
 
@@ -67,7 +69,9 @@ def joint_renyi_entropy_2(*kernels: torch.Tensor) -> torch.Tensor:
     return renyi_entropy_2(joint_K_norm)
 
 
-def renyi_entropy(K: torch.Tensor, alpha: float = 2.0, approx: bool = False) -> torch.Tensor:
+def renyi_entropy(
+    K: torch.Tensor, alpha: float = 2.0, approx: bool = False
+) -> torch.Tensor:
     """
     Computes Matrix-Rényi alpha-entropy.
     If alpha=2, uses the efficient Tr(A^2) implementation.
@@ -88,7 +92,7 @@ def renyi_entropy(K: torch.Tensor, alpha: float = 2.0, approx: bool = False) -> 
     lambdas = torch.linalg.eigvalsh(K)
     lambdas = torch.clamp(lambdas, min=1e-10)
     sum_lambdas_alpha = torch.sum(lambdas**alpha)
-    
+
     entropy = (1.0 / (1.0 - alpha)) * torch.log2(sum_lambdas_alpha.clamp(min=1e-12))
     return torch.clamp(entropy, min=0.0)
 
@@ -97,7 +101,7 @@ def renyi_entropy_approx(
     K: torch.Tensor, alpha: float = 2.0, degree: int = 30, num_vectors: int = 50
 ) -> torch.Tensor:
     """
-    Approximates Matrix-Rényi alpha-entropy in O(N^2) using 
+    Approximates Matrix-Rényi alpha-entropy in O(N^2) using
     Chebyshev polynomial expansion and Randomized Trace estimation.
     """
     if abs(alpha - 2.0) < 1e-6:
@@ -108,7 +112,7 @@ def renyi_entropy_approx(
     # We approximate g(t) = ((t+1)/2)^alpha
     import numpy as np
 
-    def g(t):
+    def g(t: float | np.ndarray) -> float | np.ndarray:
         return ((t + 1) / 2) ** alpha
 
     # Nodes for Chebyshev approximation
@@ -121,32 +125,32 @@ def renyi_entropy_approx(
         )
     # coeffs[0] needs to be halved for the standard sum
     coeffs[0] /= 2.0
-    
+
     coeffs_torch = torch.tensor(coeffs, device=K.device, dtype=K.dtype)
 
     # 2. Randomized Trace Estimation: Tr(f(A)) = E[z^T f(A) z]
     # z is a Rademacher vector (elements are +/-1)
     batch_size = K.shape[0]
     z = torch.randint(0, 2, (batch_size, num_vectors), device=K.device).float() * 2 - 1
-    
+
     # Map A to [-1, 1] domain: T = 2A - I
     # Since K is normalized, its eigenvalues are in [0, 1].
     I = torch.eye(batch_size, device=K.device)
     T_mat = 2 * K - I
-    
+
     # Recursive computation of Tr(T_k(T_mat))
     # v_k = T_k(T_mat) z
     # v_0 = z
     # v_1 = T_mat @ z
     # v_{k+1} = 2 * T_mat @ v_k - v_{k-1}
-    
+
     v_prev = z
     v_curr = torch.matmul(T_mat, z)
-    
+
     # tr_f_A = coeffs[0] * z^T v_0 + coeffs[1] * z^T v_1 + ...
     tr_f_A = coeffs_torch[0] * torch.sum(z * v_prev) / num_vectors
     tr_f_A += coeffs_torch[1] * torch.sum(z * v_curr) / num_vectors
-    
+
     for k in range(2, degree):
         v_next = 2 * torch.matmul(T_mat, v_curr) - v_prev
         tr_f_A += coeffs_torch[k] * torch.sum(z * v_next) / num_vectors
@@ -163,7 +167,7 @@ def von_neumann_entropy(K: torch.Tensor) -> torch.Tensor:
     """
     lambdas = torch.linalg.eigvalsh(K)
     lambdas = torch.clamp(lambdas, min=1e-10)
-    
+
     entropy = -torch.sum(lambdas * torch.log2(lambdas))
     return torch.clamp(entropy, min=0.0)
 
@@ -172,16 +176,16 @@ def von_neumann_entropy_approx(
     K: torch.Tensor, degree: int = 30, num_vectors: int = 50
 ) -> torch.Tensor:
     """
-    Approximates von Neumann entropy in O(N^2) using Chebyshev 
+    Approximates von Neumann entropy in O(N^2) using Chebyshev
     polynomial expansion of f(x) = -x * log2(x).
     """
     import numpy as np
 
-    def g(t):
+    def g(t: float | np.ndarray) -> float | np.ndarray:
         x = (t + 1) / 2
         # Use a small epsilon for log stability at x=0
         x = np.clip(x, 1e-12, 1.0)
-        return -x * np.log2(x)
+        return cast(float | np.ndarray, -x * np.log2(x))
 
     # Nodes for Chebyshev approximation
     nodes = np.cos(np.pi * (np.arange(degree) + 0.5) / degree)
@@ -192,20 +196,20 @@ def von_neumann_entropy_approx(
             values * np.cos(np.pi * k * (np.arange(degree) + 0.5) / degree)
         )
     coeffs[0] /= 2.0
-    
+
     coeffs_torch = torch.tensor(coeffs, device=K.device, dtype=K.dtype)
 
     batch_size = K.shape[0]
     z = torch.randint(0, 2, (batch_size, num_vectors), device=K.device).float() * 2 - 1
     I = torch.eye(batch_size, device=K.device)
     T_mat = 2 * K - I
-    
+
     v_prev = z
     v_curr = torch.matmul(T_mat, z)
-    
+
     tr_f_A = coeffs_torch[0] * torch.sum(z * v_prev) / num_vectors
     tr_f_A += coeffs_torch[1] * torch.sum(z * v_curr) / num_vectors
-    
+
     for k in range(2, degree):
         v_next = 2 * torch.matmul(T_mat, v_curr) - v_prev
         tr_f_A += coeffs_torch[k] * torch.sum(z * v_next) / num_vectors

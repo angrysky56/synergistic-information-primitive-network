@@ -53,10 +53,23 @@ $$L = L_{task} - \lambda_1(AIS) - \lambda_2(TE) - \lambda_3(Synergy)$$
 - $Synergy$: Calculated at the `SynergyHub` inputs.
 
 ### 4.2. Cognitive Phasing Scheduler
-The values of $\lambda$ dynamically scale to drive cognitive development.
-1. **Phase 1 (Redundant Encoding)**: $\lambda_1, \lambda_2, \lambda_3 \approx 0$. Rapid $L_{task}$ minimization.
-2. **Phase 2 (Pruning & Routing)**: $\lambda_2$ (TE) increases. Sparsifies connections forcing the usage of active buses.
-3. **Phase 3 (Specialization)**: $\lambda_1$ (AIS) and $\lambda_3$ (Synergy) increase. Memory is pushed strictly to Storage Nodes, and logic is pushed strictly to Synergy Hubs.
+The values of $\lambda$ dynamically scale to drive cognitive development through three distinct stages:
+
+1. **Phase 1 (Redundant Encoding)**: $\lambda_1, \lambda_2, \lambda_3 \approx 0$.
+   - **Goal**: Rapid $L_{task}$ minimization.
+   - **Behavior**: The network behaves like a standard RNN/LSTM, spreading information across all nodes.
+2. **Phase 2 (Pruning & Routing)**: $\lambda_2$ (TE) increases.
+   - **Goal**: Sparsify connections and force the usage of specific "Buses".
+   - **Behavior**: Information routing becomes localized. "Distractor" tokens are ignored, and TE peaks between relevant semantic entities.
+3. **Phase 3 (Specialization & Logic Extraction)**: $\lambda_1$ (AIS) and $\lambda_3$ (Synergy) increase.
+   - **Goal**: Push memory strictly to `StorageNodes` and logic strictly to `SynergyHubs`.
+   - **Behavior**: `SynergyHubs` remain dormant until a high-complexity integration is required (e.g., resolving a pronoun). `StorageNodes` show high AIS during "waiting" periods.
+
+### 4.3. Interpretability & Transparency
+Unlike traditional "Black Box" models, SIP-Net provides a "Glass Box" view:
+- **Synergy Spikes**: Identifying precisely *where* a model is performing a complex computation.
+- **TE Maps**: Identifying precisely *which* inputs are being used for a specific decision.
+- **AIS Buffering**: Visualizing the model's "working memory" load over time.
 
 ## 5. Development Strategy (Plan -> Build -> Test -> Release)
 

@@ -67,7 +67,10 @@ class SIPLayer(nn.Module):
 
         # Synergy Hubs (Integration/Logic)
         self.synergy_hubs = nn.ModuleList(
-            [SynergyHub(hidden_dim, hidden_dim, output_dim) for _ in range(num_synergy_hubs)]
+            [
+                SynergyHub(hidden_dim, hidden_dim, output_dim)
+                for _ in range(num_synergy_hubs)
+            ]
         )
 
     def forward(self, x_t: torch.Tensor) -> LayerOutput:
@@ -141,4 +144,3 @@ class SIPLayer(nn.Module):
         for node in self.storage_nodes:
             if isinstance(node, StorageNode):
                 node.reset_state()
-
