@@ -1,14 +1,17 @@
-import torch
-from torch.utils.data import Dataset
 import random
 
-class SequentialNLPDataset(Dataset):
+import torch
+from torch.utils.data import Dataset
+
+
+class SequentialNLPDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
     """
     Synthetic NLP Coreference Generator.
     Generates sequences like: ["The", "dog", "barked", "until", "it", "slept"]
     Target: At the timestep of the pronoun ("it"), the network must output
     the class ID of the original subject ("dog").
     """
+
     def __init__(self, num_samples: int):
         self.num_samples = num_samples
 
@@ -21,11 +24,18 @@ class SequentialNLPDataset(Dataset):
         self.verbs2 = ["slept", "halted", "crashed", "rested"]
 
         # Build vocabulary mapping
-        self.vocab = ["<PAD>"] + self.articles + self.subjects + self.verbs1 + \
-                     self.conjunctions + self.pronouns + self.verbs2
+        self.vocab = (
+            ["<PAD>"]
+            + self.articles
+            + self.subjects
+            + self.verbs1
+            + self.conjunctions
+            + self.pronouns
+            + self.verbs2
+        )
         self.word2idx = {word: idx for idx, word in enumerate(self.vocab)}
         self.vocab_size = len(self.vocab)
-        self.seq_len = 6 # Fixed sequence length for this synthetic task
+        self.seq_len = 6  # Fixed sequence length for this synthetic task
 
         # Generate data
         self.data, self.targets = self._generate_dataset()
@@ -43,7 +53,7 @@ class SequentialNLPDataset(Dataset):
                 random.choice(self.verbs1),
                 random.choice(self.conjunctions),
                 random.choice(self.pronouns),
-                random.choice(self.verbs2)
+                random.choice(self.verbs2),
             ]
 
             # Convert to indices
@@ -56,7 +66,9 @@ class SequentialNLPDataset(Dataset):
             target[4] = self.word2idx[subj]
             target_seqs.append(target)
 
-        return torch.tensor(data_seqs, dtype=torch.long), torch.tensor(target_seqs, dtype=torch.long)
+        return torch.tensor(data_seqs, dtype=torch.long), torch.tensor(
+            target_seqs, dtype=torch.long
+        )
 
     def __len__(self) -> int:
         return self.num_samples

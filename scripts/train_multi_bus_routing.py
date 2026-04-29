@@ -2,12 +2,13 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 
-from sipnet.domain.network.graph import SIPNet
+from sipnet.application.execution.nlp_generators import SequentialNLPDataset
 from sipnet.application.training.loss_function import CompositeLoss
 from sipnet.application.training.trainer import CognitiveTrainer
-from sipnet.application.execution.nlp_generators import SequentialNLPDataset
+from sipnet.domain.network.graph import SIPNet
 
-def main():
+
+def main() -> None:
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Initializing SIP-Net Multi-Bus Routing Validation on {device}...\n")
 
@@ -24,11 +25,11 @@ def main():
     model = SIPNet(
         input_dim=vocab_size,
         hidden_dim=hidden_dim,
-        output_dim=vocab_size, # Predict word class
+        output_dim=vocab_size,  # Predict word class
         num_storage_nodes=1,
         num_synergy_hubs=1,
         num_parallel_buses=num_buses,
-        use_embedding=True
+        use_embedding=True,
     ).to(device)
 
     # CrossEntropyLoss automatically ignores target index 0 which corresponds to our <PAD>
@@ -55,11 +56,18 @@ def main():
                     if bus_key in metrics:
                         bus_te_strs.append(f"B{b}:{metrics[bus_key]:.3f}")
 
-                bus_str = " | ".join(bus_te_strs) if bus_te_strs else f"TE:{metrics['te']:.3f}"
+                bus_str = (
+                    " | ".join(bus_te_strs)
+                    if bus_te_strs
+                    else f"TE:{metrics['te']:.3f}"
+                )
 
-                print(f"Ep {epoch:03d} | L:{metrics['loss']:.3f} | Task:{metrics['task_loss']:.3f} | "
-                      f"AIS:{metrics['ais']:.3f} | {bus_str} | Syn:{metrics['synergy']:.3f} | "
-                      f"L1:{metrics.get('l1_cost', 0.0):.4f} | Red:{metrics.get('redundancy', 0.0):.3f}")
+                print(
+                    f"Ep {epoch:03d} | L:{metrics['loss']:.3f} | Task:{metrics['task_loss']:.3f} | "
+                    f"AIS:{metrics['ais']:.3f} | {bus_str} | Syn:{metrics['synergy']:.3f} | "
+                    f"L1:{metrics.get('l1_cost', 0.0):.4f} | Red:{metrics.get('redundancy', 0.0):.3f}"
+                )
+
 
 if __name__ == "__main__":
     main()

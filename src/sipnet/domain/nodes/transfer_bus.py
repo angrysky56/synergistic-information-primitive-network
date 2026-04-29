@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from typing import cast
 
 
 class TransferBus(nn.Module):
@@ -7,6 +8,9 @@ class TransferBus(nn.Module):
     TransferBus (Routing Primitive)
     Transfers data from source to target without distortion. Optimized for Transfer Entropy.
     """
+
+    activity_score: torch.Tensor
+
     def __init__(self, source_dim: int, target_dim: int):
         super().__init__()
         self.source_dim = source_dim

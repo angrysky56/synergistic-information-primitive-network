@@ -2,12 +2,13 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 
-from sipnet.domain.network.graph import SIPNet
+from sipnet.application.execution.nlp_generators import SequentialNLPDataset
 from sipnet.application.training.loss_function import CompositeLoss
 from sipnet.application.training.trainer import CognitiveTrainer
-from sipnet.application.execution.nlp_generators import SequentialNLPDataset
+from sipnet.domain.network.graph import SIPNet
 
-def main():
+
+def main() -> None:
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Initializing SIP-Net NLP Coreference Validation on {device}...\n")
 
@@ -23,10 +24,10 @@ def main():
     model = SIPNet(
         input_dim=vocab_size,
         hidden_dim=hidden_dim,
-        output_dim=vocab_size, # Predict word class
+        output_dim=vocab_size,  # Predict word class
         num_storage_nodes=1,
         num_synergy_hubs=1,
-        use_embedding=True
+        use_embedding=True,
     ).to(device)
 
     # CrossEntropyLoss automatically ignores target index 0 which corresponds to our <PAD>
@@ -46,8 +47,11 @@ def main():
             metrics = trainer.train_epoch(dataloader)
 
             if epoch % 10 == 0:
-                print(f"Epoch {epoch:03d} | Loss: {metrics['loss']:.4f} | Task: {metrics['task_loss']:.4f} | "
-                      f"AIS: {metrics['ais']:.4f} | TE: {metrics['te']:.4f} | Syn: {metrics['synergy']:.4f}")
+                print(
+                    f"Epoch {epoch:03d} | Loss: {metrics['loss']:.4f} | Task: {metrics['task_loss']:.4f} | "
+                    f"AIS: {metrics['ais']:.4f} | TE: {metrics['te']:.4f} | Syn: {metrics['synergy']:.4f}"
+                )
+
 
 if __name__ == "__main__":
     main()

@@ -1,6 +1,13 @@
+"""
+Synergistic Information Primitive Network (SIP) Layer implementation.
+"""
+
+from typing import Any
+
 import torch
 import torch.nn as nn
 
+from ..common.types import LayerOutput
 from ..nodes.storage_node import StorageNode
 from ..nodes.synergy_hub import SynergyHub
 from ..nodes.transfer_bus import TransferBus
@@ -9,7 +16,9 @@ from ..nodes.transfer_bus import TransferBus
 class SIPLayer(nn.Module):
     """
     A single hierarchical layer of the Synergistic Information Primitive Network.
-    Encapsulates memory (Storage), routing (Buses), and logic (Synergy Hubs).
+
+    Encapsulates memory (Storage), routing (Buses), and logic (Synergy Hubs)
+    to process information synergistic interactions.
     """
 
     def __init__(
@@ -21,6 +30,17 @@ class SIPLayer(nn.Module):
         num_synergy_hubs: int = 1,
         num_parallel_buses: int = 1,
     ) -> None:
+        """
+        Initializes the SIPLayer.
+
+        Args:
+            input_dim: Dimension of the incoming signal.
+            hidden_dim: Dimension of the internal state representations.
+            output_dim: Dimension of the resulting layer output.
+            num_storage_nodes: Number of storage nodes (memory) in this layer.
+            num_synergy_hubs: Number of synergy hubs (logic) in this layer.
+            num_parallel_buses: Number of parallel buses (FF/TD) in this layer.
+        """
         super().__init__()
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
@@ -28,7 +48,7 @@ class SIPLayer(nn.Module):
 
         # Projection if upstream dimension differs from internal hidden dimension
         if input_dim != hidden_dim:
-            self.input_projection = nn.Linear(input_dim, hidden_dim)
+            self.input_projection: nn.Module = nn.Linear(input_dim, hidden_dim)
         else:
             self.input_projection = nn.Identity()
 
@@ -47,19 +67,38 @@ class SIPLayer(nn.Module):
 
         # Synergy Hubs (Integration/Logic)
         self.synergy_hubs = nn.ModuleList(
-            [
-                SynergyHub(hidden_dim, hidden_dim, output_dim)
-                for _ in range(num_synergy_hubs)
-            ]
+            [SynergyHub(hidden_dim, hidden_dim, output_dim) for _ in range(num_synergy_hubs)]
         )
 
-    def forward_step(self, x_t: torch.Tensor) -> dict[str, torch.Tensor]:
+    def forward(self, x_t: torch.Tensor) -> LayerOutput:
+        """
+        Primary entry point for the layer.
+
+        Args:
+            x_t: Input tensor for the current time step.
+
+        Returns:
+            A dictionary of all internal and external layer states.
+        """
+        return self.forward_step(x_t)
+
+    def forward_step(self, x_t: torch.Tensor) -> LayerOutput:
+        """
+        Performs a single synergistic integration step.
+
+        Args:
+            x_t: Input tensor for the current time step.
+
+        Returns:
+            A dictionary containing the encoded signal, bus signals, and the final representation.
+        """
         encoded = self.input_projection(x_t)
 
         # Storage Nodes buffer the *raw* encoding over time
         storage_outputs = []
         for node in self.storage_nodes:
-            storage_outputs.append(node(encoded))
+            if isinstance(node, StorageNode):
+                storage_outputs.append(node(encoded))
 
         context_state = torch.mean(torch.stack(storage_outputs), dim=0)
 
@@ -72,7 +111,6 @@ class SIPLayer(nn.Module):
             ff_signals.append(bus(encoded + noise))
 
         # Time-Delayed buses evaluate the *buffered* context
-
         ctx_signals = []
         for bus in self.td_buses:
             ctx_signals.append(bus(context_state))
@@ -97,5 +135,10 @@ class SIPLayer(nn.Module):
         }
 
     def reset_memory(self) -> None:
+        """
+        Resets the internal state of all storage nodes in the layer.
+        """
         for node in self.storage_nodes:
-            node.reset_state()
+            if isinstance(node, StorageNode):
+                node.reset_state()
+

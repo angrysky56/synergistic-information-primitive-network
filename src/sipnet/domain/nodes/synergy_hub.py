@@ -1,3 +1,5 @@
+from typing import cast
+
 import torch
 import torch.nn as nn
 
@@ -39,4 +41,4 @@ class SynergyHub(nn.Module):
         combined = torch.cat([ff_features, ctx_features, interaction], dim=1)
         output = self.synthesis(combined)
 
-        return output
+        return cast(torch.Tensor, output)

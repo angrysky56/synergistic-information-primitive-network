@@ -1,3 +1,7 @@
+"""
+Training script for the Deep Synergistic Information Primitive Network (Deep SIP-Net).
+"""
+
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
@@ -9,6 +13,9 @@ from sipnet.domain.network.graph import SIPNet
 
 
 def main() -> None:
+    """
+    Main training loop for validating the hierarchical SIP-Net architecture.
+    """
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Initializing Deep SIP-Net (Hierarchical Validation) on {device}...\n")
 

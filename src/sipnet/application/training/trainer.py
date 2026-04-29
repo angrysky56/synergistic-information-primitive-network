@@ -1,3 +1,5 @@
+from typing import Any
+
 import torch
 from torch.utils.data import DataLoader
 
@@ -36,9 +38,10 @@ class CognitiveTrainer:
         elif phase == 3:
             self.lambdas = {"ais": 1.0, "te": 0.5, "synergy": 1.0}
 
-    def train_epoch(self, dataloader: DataLoader) -> dict[str, float]:
+    def train_epoch(self, dataloader: DataLoader[Any]) -> dict[str, float]:
+        """Runs a single training epoch."""
         self.model.train()
-        epoch_metrics = {
+        epoch_metrics: dict[str, float] = {
             "loss": 0.0,
             "task_loss": 0.0,
             "ais": 0.0,
@@ -53,7 +56,7 @@ class CognitiveTrainer:
             self.optimizer.zero_grad()
 
             # Forward pass unrolls over the entire sequence
-            # outputs_seq is a list of dictionaries, one per timestep
+            # outputs_seq is a list of StepOutput dictionaries
             outputs_seq = self.model(data_seq)
 
             total_loss = torch.tensor(0.0, device=self.device)
@@ -70,7 +73,6 @@ class CognitiveTrainer:
                     ]
 
                 # We only want the task_loss to apply at the final timestep
-                # The loss_module handles the targets. We pass the targets for timestep t.
                 if target_seq.dim() == 3:
                     current_targets = target_seq[:, t, :]
                 else:
@@ -80,9 +82,7 @@ class CognitiveTrainer:
                     current_outputs, current_targets, self.lambdas
                 )
 
-                # For classification tasks with padded intervals, trust ignore_index.
-                # For continuous sequences (XOR), zero out intermediate steps unless it's the
-                # final target.
+                # For continuous sequences (XOR), zero out intermediate steps unless it's the final target.
                 compute_task_loss = True
                 if target_seq.dtype != torch.long and t < seq_len - 1:
                     compute_task_loss = False
@@ -90,8 +90,6 @@ class CognitiveTrainer:
                 if not compute_task_loss:
                     loss_dict["loss"] = loss_dict["loss"] - loss_dict["task_loss"]
                     loss_dict["task_loss"] = torch.tensor(0.0, device=self.device)
-
-                total_loss = total_loss + loss_dict["loss"]
 
                 total_loss = total_loss + loss_dict["loss"]
 
@@ -108,13 +106,20 @@ class CognitiveTrainer:
                             list_k = f"{k}_{idx}"
                             if list_k not in epoch_metrics:
                                 epoch_metrics[list_k] = 0.0
-                            epoch_metrics[list_k] += v_item.item() / seq_len
+                            if isinstance(v_item, torch.Tensor):
+                                epoch_metrics[list_k] += v_item.item() / seq_len
 
             # Single backward pass through the entire unrolled sequence
             total_loss.backward()
+
+            # Apply gradient clipping to stabilize training, especially for IT loss components
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
+
             self.optimizer.step()
 
-        for k in epoch_metrics:
-            epoch_metrics[k] /= len(dataloader)
+        num_batches = len(dataloader)
+        if num_batches > 0:
+            for k in epoch_metrics:
+                epoch_metrics[k] /= num_batches
 
         return epoch_metrics

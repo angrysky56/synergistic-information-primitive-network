@@ -1,13 +1,21 @@
+"""
+Synergistic Information Primitive Network (SIP-Net) graph implementation.
+"""
+from typing import Any
+
 import torch
 import torch.nn as nn
 
+from ..common.types import StepOutput
 from .sip_layer import SIPLayer
 
 
 class SIPNet(nn.Module):
     """
-    Deep Synergistic Information Primitive Network (Deep SIP-Net)
-    A hierarchical graph of stacked SIPLayers.
+    Deep Synergistic Information Primitive Network (Deep SIP-Net).
+
+    A hierarchical graph of stacked SIPLayers that processes information
+    through synergistic interactions between storage and transfer components.
     """
 
     def __init__(
@@ -21,10 +29,24 @@ class SIPNet(nn.Module):
         num_parallel_buses: int = 1,
         use_embedding: bool = False,
     ) -> None:
+        """
+        Initializes the SIPNet hierarchy.
+
+        Args:
+            input_dim: Dimension of the input data or embedding vocabulary size.
+            hidden_dim: Dimension of the internal hidden representations.
+            output_dim: Dimension of the output logits.
+            num_layers: Number of hierarchical SIP layers to stack.
+            num_storage_nodes: Number of storage nodes per layer.
+            num_synergy_hubs: Number of synergy hubs per layer.
+            num_parallel_buses: Number of parallel buses (FF/TD) per layer.
+            use_embedding: Whether to use an embedding layer as the sensory encoder.
+        """
         super().__init__()
         self.use_embedding = use_embedding
 
         # 1. Sensory Encoder
+        self.encoder: nn.Module
         if self.use_embedding:
             self.encoder = nn.Embedding(
                 num_embeddings=input_dim, embedding_dim=hidden_dim
@@ -50,7 +72,16 @@ class SIPNet(nn.Module):
         # 3. Output Decoder
         self.decoder = nn.Linear(hidden_dim, output_dim)
 
-    def forward_step(self, x_t: torch.Tensor) -> dict:
+    def forward_step(self, x_t: torch.Tensor) -> StepOutput:
+        """
+        Processes a single sensory input through the hierarchical SIP layers.
+
+        Args:
+            x_t: Input tensor for the current time step.
+
+        Returns:
+            A dictionary containing logits and intermediate layer outputs.
+        """
         encoded_sensory = self.encoder(x_t)
 
         current_input = encoded_sensory
@@ -58,6 +89,8 @@ class SIPNet(nn.Module):
 
         # Pass data forward through the hierarchy
         for layer in self.layers:
+            if not isinstance(layer, SIPLayer):
+                continue
             out = layer.forward_step(current_input)
             layer_outputs.append(out)
             # The final representation of Layer L becomes the input for Layer L+1
@@ -68,9 +101,19 @@ class SIPNet(nn.Module):
         return {
             "logits": logits,
             "layer_outputs": layer_outputs,  # Export all nested state matrices for loss tracking
+            "prev_layer_outputs": None,  # Linked during training
         }
 
-    def forward(self, x_seq: torch.Tensor) -> list[dict]:
+    def forward(self, x_seq: torch.Tensor) -> list[StepOutput]:
+        """
+        Processes a sequence of sensory inputs over time.
+
+        Args:
+            x_seq: Input sequence tensor of shape (batch, sequence_length, ...).
+
+        Returns:
+            A list of result dictionaries for each time step.
+        """
         seq_len = x_seq.size(1)
         outputs_over_time = []
         self.reset_memory()
@@ -85,5 +128,9 @@ class SIPNet(nn.Module):
         return outputs_over_time
 
     def reset_memory(self) -> None:
+        """
+        Resets the memory state (storage nodes) in all hierarchical layers.
+        """
         for layer in self.layers:
-            layer.reset_memory()
+            if isinstance(layer, SIPLayer):
+                layer.reset_memory()

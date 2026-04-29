@@ -1,12 +1,14 @@
 import torch
 from torch.utils.data import Dataset
 
-class DelayedXORDataset(Dataset):
+
+class DelayedXORDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
     """
     N-bit Temporal Parity (Delayed XOR) sequence generator.
     Input: [Batch, Seq_Len, N_Bits]
     Targets: [Batch, Seq_Len, N_Bits] (Only the final timestep contains the XOR target)
     """
+
     def __init__(self, num_samples: int, seq_len: int, num_bits: int):
         self.num_samples = num_samples
         self.seq_len = seq_len

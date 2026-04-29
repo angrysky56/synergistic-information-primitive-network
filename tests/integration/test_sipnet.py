@@ -2,10 +2,10 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 
-from sipnet.domain.network.graph import SIPNet
+from sipnet.application.execution.data_generators import DelayedXORDataset
 from sipnet.application.training.loss_function import CompositeLoss
 from sipnet.application.training.trainer import CognitiveTrainer
-from sipnet.application.execution.data_generators import DelayedXORDataset
+from sipnet.domain.network.graph import SIPNet
 
 
 def test_sipnet_end_to_end():
@@ -36,9 +36,12 @@ def test_sipnet_end_to_end():
     # Check the contents of a single timestep output
     step_out = outputs_seq[0]
     assert "logits" in step_out
-    assert "encoded" in step_out
-    assert "ff_signal" in step_out
-    assert "ctx_signal" in step_out
+    assert "layer_outputs" in step_out
+
+    layer_out = step_out["layer_outputs"][0]
+    assert "encoded" in layer_out
+    assert "ff_signals" in layer_out
+    assert "ctx_signals" in layer_out
     assert step_out["logits"].shape == (4, output_dim)
 
     # 2. Verify training step (Phase 1 BPTT)
@@ -62,7 +65,7 @@ def test_sipnet_differentiability():
     # X needs to be a sequence now [batch_size, seq_len, input_dim]
     x_seq = torch.randn(5, 3, 10, requires_grad=True)
     # Target needs to be a sequence [batch_size, seq_len, target_dim]
-    y_seq = torch.randn(5, 3, 2) # BCE needs float targets
+    y_seq = torch.randn(5, 3, 2)  # BCE needs float targets
 
     task_loss_fn = nn.BCEWithLogitsLoss()
     loss_module = CompositeLoss(task_loss_fn)
@@ -76,8 +79,7 @@ def test_sipnet_differentiability():
         current_outputs = outputs_seq[t]
 
         if t > 0:
-            current_outputs["prev_encoded"] = outputs_seq[t-1]["encoded"]
-            current_outputs["prev_context_state"] = outputs_seq[t-1]["context_state"]
+            current_outputs["prev_layer_outputs"] = outputs_seq[t - 1]["layer_outputs"]
 
         current_targets = y_seq[:, t, :]
         loss_dict = loss_module(current_outputs, current_targets, lambdas)
@@ -91,8 +93,13 @@ def test_sipnet_differentiability():
     total_loss.backward()
 
     # Check if gradients flowed to the encoder
-    assert model.encoder.weight.grad is not None
+    if hasattr(model.encoder, "weight"):
+        assert model.encoder.weight.grad is not None
+    else:
+        # For Embedding
+        assert model.encoder.weight.grad is not None
+
     # Check if gradients flowed to Storage Nodes
-    assert model.storage_nodes[0].recurrent_weights.grad is not None
+    assert model.layers[0].storage_nodes[0].recurrent_weights.grad is not None
     # Check if gradients flowed to Synergy Hub
-    assert model.synergy_hubs[0].ff_layer.weight.grad is not None
+    assert model.layers[0].synergy_hubs[0].ff_layer.weight.grad is not None

@@ -1,8 +1,13 @@
-import torch
 import pytest
-from sipnet.infrastructure.information_theory.ais_estimator import estimate_mutual_information_renyi, estimate_ais
-from sipnet.infrastructure.information_theory.te_estimator import estimate_te
+import torch
+
+from sipnet.infrastructure.information_theory.ais_estimator import (
+    estimate_ais,
+    estimate_mutual_information_renyi,
+)
 from sipnet.infrastructure.information_theory.pid_estimator import estimate_pid_renyi
+from sipnet.infrastructure.information_theory.te_estimator import estimate_te
+
 
 def test_mi_renyi_differentiability():
     x = torch.randn(10, 5, requires_grad=True)
@@ -14,6 +19,7 @@ def test_mi_renyi_differentiability():
     assert x.grad is not None
     assert y.grad is not None
     assert mi >= 0.0
+
 
 def test_ais_simple():
     # Correlated signals should have AIS > 0
@@ -29,6 +35,7 @@ def test_ais_simple():
     ais_rand = estimate_ais(past_rand, present_rand)
     assert ais_rand < ais
 
+
 def test_te_differentiability():
     source_past = torch.randn(10, 5, requires_grad=True)
     target_present = torch.randn(10, 5, requires_grad=True)
@@ -42,6 +49,7 @@ def test_te_differentiability():
     assert target_past.grad is not None
     assert te >= 0.0
 
+
 def test_pid_renyi():
     s1 = torch.randn(100, 5)
     s2 = torch.randn(100, 5)
@@ -50,11 +58,11 @@ def test_pid_renyi():
 
     results = estimate_pid_renyi(s1, s2, target)
 
-    assert results['synergy'] >= 0.0
-    assert results['redundancy'] >= 0.0
-    assert results['unique1'] >= 0.0
-    assert results['unique2'] >= 0.0
+    assert results["synergy"] >= 0.0
+    assert results["redundancy"] >= 0.0
+    assert results["unique1"] >= 0.0
+    assert results["unique2"] >= 0.0
 
     # In a simple additive case, synergy should be high if target
     # provides information not in either source alone
-    assert results['synergy'] > 0.0
+    assert results["synergy"] > 0.0

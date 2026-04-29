@@ -1,8 +1,10 @@
-import torch
 import pytest
+import torch
+
 from sipnet.domain.nodes.storage_node import StorageNode
-from sipnet.domain.nodes.transfer_bus import TransferBus
 from sipnet.domain.nodes.synergy_hub import SynergyHub
+from sipnet.domain.nodes.transfer_bus import TransferBus
+
 
 def test_storage_node_dynamics():
     node = StorageNode(dim=10, input_dim=5, spectral_radius=0.9)
@@ -22,6 +24,7 @@ def test_storage_node_dynamics():
     node.reset_state()
     assert torch.all(node.state == 0)
 
+
 def test_transfer_bus_routing():
     bus = TransferBus(source_dim=10, target_dim=10)
     x = torch.randn(1, 10)
@@ -33,6 +36,7 @@ def test_transfer_bus_routing():
     # Check activity score update
     bus.set_activity(0.85)
     assert bus.activity_score == 0.85
+
 
 def test_synergy_hub_integration():
     hub = SynergyHub(ff_dim=10, ctx_dim=10, output_dim=5)

@@ -5,12 +5,13 @@ Loss functions for SIP-Net training.
 import torch
 import torch.nn as nn
 
+from ...domain.common.types import StepOutput
 from ...infrastructure.information_theory.ais_estimator import estimate_ais
 from ...infrastructure.information_theory.pid_estimator import estimate_pid_renyi
 from ...infrastructure.information_theory.te_estimator import estimate_te
 
 
-class CompositeLoss(nn.Module):  # type: ignore
+class CompositeLoss(nn.Module):
     """
     Multi-objective loss function for SIP-Net.
     L = L_task - lambda1*AIS - lambda2*TE - lambda3*Synergy
@@ -26,7 +27,7 @@ class CompositeLoss(nn.Module):  # type: ignore
 
     def forward(
         self,
-        outputs: dict[str, torch.Tensor],
+        outputs: StepOutput,
         targets: torch.Tensor,
         lambdas: dict[str, float],
     ) -> dict[str, torch.Tensor]:
@@ -56,32 +57,36 @@ class CompositeLoss(nn.Module):  # type: ignore
             layer_out = outputs["layer_outputs"][l_idx]
 
             # 1. AIS
-            if "prev_layer_outputs" in outputs:
-                prev_layer_out = outputs["prev_layer_outputs"][l_idx]
-                if (
-                    prev_layer_out["context_state"].shape[0]
-                    == layer_out["context_state"].shape[0]
-                ):
-                    total_ais = total_ais + estimate_ais(
-                        prev_layer_out["context_state"], layer_out["context_state"]
-                    )
+            if outputs.get("prev_layer_outputs") is not None:
+                prev_layer_outputs = outputs["prev_layer_outputs"]
+                if prev_layer_outputs is not None:
+                    prev_layer_out = prev_layer_outputs[l_idx]
+                    if (
+                        prev_layer_out["context_state"].shape[0]
+                        == layer_out["context_state"].shape[0]
+                    ):
+                        total_ais = total_ais + estimate_ais(
+                            prev_layer_out["context_state"], layer_out["context_state"]
+                        )
 
             # 2. TE & L1 Cost
-            if "prev_layer_outputs" in outputs:
-                prev_layer_out = outputs["prev_layer_outputs"][l_idx]
-                if (
-                    prev_layer_out["context_state"].shape[0]
-                    == layer_out["final_rep"].shape[0]
-                ):
-                    for bus_output in layer_out["ctx_signals"]:
-                        # Just track L1 cost
-                        total_l1 = total_l1 + torch.abs(bus_output).mean()
+            if outputs.get("prev_layer_outputs") is not None:
+                prev_layer_outputs = outputs["prev_layer_outputs"]
+                if prev_layer_outputs is not None:
+                    prev_layer_out = prev_layer_outputs[l_idx]
+                    if (
+                        prev_layer_out["context_state"].shape[0]
+                        == layer_out["final_rep"].shape[0]
+                    ):
+                        for bus_output in layer_out["ctx_signals"]:
+                            # Just track L1 cost
+                            total_l1 = total_l1 + torch.abs(bus_output).mean()
 
-                    total_te = total_te + estimate_te(
-                        source_past=prev_layer_out["context_state"],
-                        target_present=layer_out["agg_ctx_signal"],
-                        target_past=prev_layer_out["final_rep"],
-                    )
+                        total_te = total_te + estimate_te(
+                            source_past=prev_layer_out["context_state"],
+                            target_present=layer_out["agg_ctx_signal"],
+                            target_past=prev_layer_out["final_rep"],
+                        )
             elif "ctx_signals" in layer_out:
                 for bus_output in layer_out["ctx_signals"]:
                     total_l1 = total_l1 + torch.abs(bus_output).mean()
