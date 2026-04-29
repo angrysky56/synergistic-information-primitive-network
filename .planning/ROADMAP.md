@@ -30,10 +30,10 @@ Scaling SIP-Net to real-world semantic tasks.
 - [x] **Plan 4.2**: Train SIP-Net on coreference data and log specialization metrics.
 - [x] **Plan 4.3**: Benchmark against standard LSTM/Transformer baselines.
 
-### Phase 5: Interpretability & Final Documentation (ACTIVE)
-- [ ] **Plan 5.1**: Develop visual/log-based diagnostic tools for IPP transparency.
-- [ ] **Plan 5.2**: Conduct Coreference Interpretability Deep-Dive.
-- [ ] **Plan 5.3**: Project cleanup and release preparation.
+### Phase 5: Interpretability & Final Documentation (COMPLETED)
+- [x] **Plan 5.1**: Develop visual/log-based diagnostic tools for IPP transparency. (COMPLETED)
+- [x] **Plan 5.2**: Conduct Coreference Interpretability Deep-Dive. (COMPLETED)
+- [x] **Plan 5.3**: Project cleanup and release preparation. (COMPLETED)
 
 ---
 *Last updated: 2026-04-29*
