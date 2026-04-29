@@ -109,6 +109,23 @@ class CognitiveTrainer:
                             if isinstance(v_item, torch.Tensor):
                                 epoch_metrics[list_k] += v_item.item() / seq_len
 
+                # Calculate Accuracy for classification tasks (long targets)
+                if target_seq.dtype == torch.long:
+                    with torch.no_grad():
+                        mask = current_targets != 0
+                        if mask.any():
+                            if "accuracy" not in epoch_metrics:
+                                epoch_metrics["accuracy"] = 0.0
+                                epoch_metrics["_acc_count"] = 0.0
+                            
+                            logits = current_outputs["logits"]
+                            preds = logits.argmax(dim=-1)
+                            correct = (preds[mask] == current_targets[mask]).sum().item()
+                            # We average accuracy over the sequence and batches later
+                            # But here we just accumulate raw counts for now
+                            epoch_metrics["accuracy"] += correct
+                            epoch_metrics["_acc_count"] += mask.sum().item()
+
             # Single backward pass through the entire unrolled sequence
             total_loss.backward()
 
@@ -119,7 +136,11 @@ class CognitiveTrainer:
 
         num_batches = len(dataloader)
         if num_batches > 0:
-            for k in epoch_metrics:
-                epoch_metrics[k] /= num_batches
+            for k in list(epoch_metrics.keys()):
+                if k == "accuracy":
+                    epoch_metrics[k] /= epoch_metrics["_acc_count"]
+                    del epoch_metrics["_acc_count"]
+                elif not k.startswith("_"):
+                    epoch_metrics[k] /= num_batches
 
         return epoch_metrics

@@ -1,9 +1,8 @@
----
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Phase 3 Hardening & Stability Verification Complete
-last_updated: "2026-04-29T07:38:44Z"
+status: Phase 4 Data Pipeline Hardened & Training In Progress
+last_updated: "2026-04-29T08:08:44Z"
 progress:
   total_phases: 5
   completed_phases: 3
@@ -28,17 +27,16 @@ progress:
 | Phase 1: Diagnostic Audit & Typing Hardening | ✅ Completed | 100% |
 | Phase 2: Mathematical Stability & Estimator Refinement | ✅ Completed | 100% |
 | Phase 3: Training Loop & Cognitive Phasing Stability | ✅ Completed | 100% |
-| Phase 4: Data Pipeline & Coreference Training | 🔄 Active | 0% |
+| Phase 4: Data Pipeline & Coreference Training | 🔄 Active | 60% |
 | Phase 5: Interpretability & Final Documentation | ⏳ Pending | 0% |
 
 ## Recent Achievements
 
-- ✓ Achieved 100% `mypy` compliance and resolved `torch.nn.Module` typing conflicts.
-- ✓ Standardized docstrings and type hints across infrastructure.
-- ✓ Implemented generalized Matrix-Rényi estimators with exact and O(N^2) approximation support.
-- ✓ Verified numerical stability and gradient flow across all estimators and edge cases.
-- ✓ Integrated gradient clipping and stabilized high-lambda cognitive training phases.
-- ✓ Documented "IPP Dark Matter" heuristics and verified zero-NaN convergence on Delayed XOR.
+- ✓ Hardened Synthetic NLP Dataset with distractor entities and variable length sequences.
+- ✓ Implemented and verified `nlp_collate_fn` for robust padded training.
+- ✓ Established LSTM and Transformer coreference baselines for performance benchmarking.
+- ✓ Verified zero-NaN training stability on baseline models.
+- ✓ Initiated SIP-Net training on distractor coreference task with cognitive phasing.
 
 ## Active Blockers
 
@@ -46,7 +44,7 @@ progress:
 
 ## Context Handoff
 
-Phase 2 is complete. Matrix-Rényi and von Neumann entropy estimators are now generalized, numerically stable, and support efficient O(N^2) approximations. Gradient flow has been verified. We are now moving into Phase 3 to stress-test the training loop and ensure stability during cognitive development phases.
+Phase 4 is well underway. The data pipeline is hardened and baseline models are established. LSTM baseline achieved 100% accuracy on the coreference task. SIP-Net training is currently active, focusing on observing Synergy ($Syn$) and Transfer Entropy ($TE$) spikes at critical semantic decision points (pronouns).
 
 ---
 *Last updated: 2026-04-29*

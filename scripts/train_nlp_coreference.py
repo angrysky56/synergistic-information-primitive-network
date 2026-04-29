@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 
-from sipnet.application.execution.nlp_generators import SequentialNLPDataset
+from sipnet.application.execution.nlp_generators import SequentialNLPDataset, nlp_collate_fn
 from sipnet.application.training.loss_function import CompositeLoss
 from sipnet.application.training.trainer import CognitiveTrainer
 from sipnet.domain.network.graph import SIPNet
@@ -15,7 +15,7 @@ def main() -> None:
     # Dataset
     num_samples = 2000
     dataset = SequentialNLPDataset(num_samples=num_samples)
-    dataloader = DataLoader(dataset, batch_size=64, shuffle=True)
+    dataloader = DataLoader(dataset, batch_size=64, shuffle=True, collate_fn=nlp_collate_fn)
 
     # Network
     vocab_size = dataset.vocab_size
@@ -24,7 +24,7 @@ def main() -> None:
     model = SIPNet(
         input_dim=vocab_size,
         hidden_dim=hidden_dim,
-        output_dim=vocab_size,  # Predict word class
+        output_dim=vocab_size,
         num_storage_nodes=1,
         num_synergy_hubs=1,
         use_embedding=True,
@@ -37,7 +37,7 @@ def main() -> None:
     optimizer = torch.optim.Adam(model.parameters(), lr=0.005)
     trainer = CognitiveTrainer(model, optimizer, loss_module, device=device)
 
-    epochs_per_phase = 50
+    epochs_per_phase = 40
 
     for phase in [1, 2, 3]:
         print(f"\n--- Entering Phase {phase} ---")
@@ -49,6 +49,7 @@ def main() -> None:
             if epoch % 10 == 0:
                 print(
                     f"Epoch {epoch:03d} | Loss: {metrics['loss']:.4f} | Task: {metrics['task_loss']:.4f} | "
+                    f"Acc: {metrics.get('accuracy', 0.0):.4f} | "
                     f"AIS: {metrics['ais']:.4f} | TE: {metrics['te']:.4f} | Syn: {metrics['synergy']:.4f}"
                 )
 
