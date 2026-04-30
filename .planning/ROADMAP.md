@@ -1,5 +1,11 @@
 # SIP-Net: Development Roadmap
 
+- [Architecture Overview](docs/ARCHITECTURE.md)
+- [API Reference](docs/API.md)
+- [Development Guide](docs/DEVELOPMENT.md)
+- [Testing Protocol](docs/TESTING.md)
+- [Configuration Guide](docs/CONFIGURATION.md)
+
 ## Milestone 1: Architecture Hardening (Current)
 Focus on stability, validity, and clean foundations.
 
@@ -35,5 +41,13 @@ Scaling SIP-Net to real-world semantic tasks.
 - [x] **Plan 5.2**: Conduct Coreference Interpretability Deep-Dive. (COMPLETED)
 - [x] **Plan 5.3**: Project cleanup and release preparation. (COMPLETED)
 
+## Milestone 3: Real-World Dataset Scaling
+Scaling the Information Primitive architecture to industrial-grade semantic tasks.
+
+### Phase 6: Large-Scale Coreference Integration (COMPLETED)
+- [x] **Plan 6.1**: Implement `OntoNotes` data ingestion pipeline with noise-resilient embedding. (COMPLETED)
+- [x] **Plan 6.2**: Scale `SIPNet` to multi-layer depth (3+ layers) with cross-layer IPP connections. (COMPLETED)
+- [x] **Plan 6.3**: Benchmark SIP-Net against pretrained Transformers (BERT/RoBERTa) for coreference. (COMPLETED)
+
 ---
-*Last updated: 2026-04-29*
+*Last updated: 2026-04-30*

@@ -1,24 +1,27 @@
 gsd_state_version: 1.0
-milestone: v1.0
+milestone: v2.0
 milestone_name: milestone
-status: Project Released | v1.0.0-alpha
-last_updated: "2026-04-29T18:59:00Z"
+status: Phase 6 Completed | Scaling to Real-World Data
+last_updated: "2026-04-30T02:00:00Z"
 progress:
-  total_phases: 5
-  completed_phases: 5
+  total_phases: 6
+  completed_phases: 6
   total_plans: 3
   completed_plans: 3
 ---
 
-# SIP-Net: Project State
+## Project Links
+- [Documentation Index](README.md#📂-documentation)
+- [Architecture Overview](docs/ARCHITECTURE.md)
+- [API Reference](docs/API.md)
 
 ## Current Milestone
 
-**Milestone 1: Architecture Hardening**
+**Milestone 3: Real-World Dataset Scaling**
 
 ## Current Phase
 
-**Active Phase: 5**
+**Phase 6: Large-Scale Coreference Integration (COMPLETED)**
 
 ## Phase Progress
 
@@ -29,22 +32,21 @@ progress:
 | Phase 3: Training Loop & Cognitive Phasing Stability | ✅ Completed | 100% |
 | Phase 4: Data Pipeline & Coreference Training | ✅ Completed | 100% |
 | Phase 5: Interpretability & Final Documentation | ✅ Completed | 100% |
+| Phase 6: Large-Scale Coreference Integration | ✅ Completed | 100% |
 
 ## Recent Achievements
-
-- ✓ Hardened Synthetic NLP Dataset with distractor entities and variable length sequences.
-- ✓ Implemented and verified `nlp_collate_fn` for robust padded training.
-- ✓ Established LSTM and Transformer coreference baselines for performance benchmarking.
-- ✓ Verified zero-NaN training stability on baseline models.
-- ✓ Initiated SIP-Net training on distractor coreference task with cognitive phasing.
+- ✓ Implemented `CoNLL2012Dataset` loader for OntoNotes 5.0 with subtoken alignment.
+- ✓ Refactored `SIPNet` to support multi-layer architectures with residual connections.
+- ✓ Implemented "Inter-Layer Synergy" in `CompositeLoss` to maximize novel information flow.
+- ✓ Integrated Hugging Face (BERT/RoBERTa) sensory encoders into the SIP-Net graph.
+- ✓ Developed coreference mention-ranking head and standard metrics (MUC, B3).
+- ✓ Verified multi-layer scaling and gradient flow through deep architectures.
 
 ## Active Blockers
-
 - None.
 
 ## Context Handoff
-
-Phase 4 is well underway. The data pipeline is hardened and baseline models are established. LSTM baseline achieved 100% accuracy on the coreference task. SIP-Net training is currently active, focusing on observing Synergy ($Syn$) and Transfer Entropy ($TE$) spikes at critical semantic decision points (pronouns).
+Phase 6 is completed. The infrastructure for large-scale coreference is now in place. SIP-Net is ready for industrial-grade semantic tasks on OntoNotes. Future work should focus on large-scale distributed training and exploring cross-domain transfer learning using the hierarchical synergy architecture.
 
 ---
-*Last updated: 2026-04-29*
+*Last updated: 2026-04-30*
