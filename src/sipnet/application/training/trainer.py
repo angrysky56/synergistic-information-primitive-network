@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 import torch
 from torch.utils.data import DataLoader
@@ -24,29 +24,64 @@ class CognitiveTrainer:
         optimizer: torch.optim.Optimizer,
         loss_module: CompositeLoss,
         device: str = "cpu",
+        layer_depth: Optional[int] = None,
     ) -> None:
         self.model = model
         self.optimizer = optimizer
         self.loss_module = loss_module
         self.device = device
+        self.layer_depth = layer_depth
 
         # Current cognitive phase hyperparameters
-        self.lambdas = {"ais": 0.0, "te": 0.0, "synergy": 0.0}
+        self.lambdas = {
+            "ais": 0.0,
+            "te": 0.0,
+            "synergy": 0.0,
+            "inter_layer_synergy": 0.0,
+        }
         self.current_phase = 1
 
         # History tracking
         self.history: list[dict[str, float]] = []
 
-    def set_phase(self, phase: int) -> None:
-        """Updates lambdas based on the development phase."""
+    def set_phase(self, phase: int, active_layers: Optional[int] = None) -> None:
+        """
+        Updates lambdas and active layers based on the development phase.
+        
+        Args:
+            phase: The cognitive development phase (1, 2, 3).
+            active_layers: Number of layers to remain trainable. Defaults to self.layer_depth.
+        """
         self.current_phase = phase
         if phase == 1:
-            self.lambdas = {"ais": 0.1, "te": 0.1, "synergy": 0.1}
+            self.lambdas = {
+                "ais": 0.1,
+                "te": 0.1,
+                "synergy": 0.1,
+                "inter_layer_synergy": 0.0,
+            }
         elif phase == 2:
-            self.lambdas = {"ais": 0.1, "te": 1.0, "synergy": 0.1}
+            self.lambdas = {
+                "ais": 0.1,
+                "te": 1.0,
+                "synergy": 0.1,
+                "inter_layer_synergy": 0.5,
+            }
         elif phase == 3:
-            self.lambdas = {"ais": 1.0, "te": 0.5, "synergy": 1.0}
+            self.lambdas = {
+                "ais": 1.0,
+                "te": 0.5,
+                "synergy": 1.0,
+                "inter_layer_synergy": 1.0,
+            }
 
+        # Update layer-wise freezing if requested
+        depth = active_layers if active_layers is not None else self.layer_depth
+        if depth is not None:
+            for i, layer in enumerate(self.model.layers):
+                for param in layer.parameters():
+                    param.requires_grad = i < depth
+            logger.info(f"Phasing: Training restricted to first {depth} layers.")
     def train_epoch(self, dataloader: DataLoader[Any]) -> dict[str, float]:
         """Runs a single training epoch."""
         self.model.train()

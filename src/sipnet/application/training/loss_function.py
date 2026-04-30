@@ -114,6 +114,20 @@ class CompositeLoss(nn.Module):
                     layer_cross_red / (len(layer_out["ctx_signals"]) - 1)
                 )
 
+        total_inter_layer_syn = torch.tensor(0.0, device=l_task.device)
+        # 4. Inter-Layer Synergy
+        for i in range(num_layers - 1):
+            l1_out = outputs["layer_outputs"][i]
+            l2_out = outputs["layer_outputs"][i+1]
+            
+            # Ensure shape compatibility for PID (assuming same hidden_dim)
+            inter_pid = estimate_pid_renyi(
+                s1=l1_out["final_rep"],
+                s2=l2_out["final_rep"],
+                target=l2_out["context_state"], # Novelty relative to next layer's state
+            )
+            total_inter_layer_syn = total_inter_layer_syn + inter_pid["synergy"]
+
         # Average metrics across layers for stable scaling
         if num_layers > 0:
             total_ais = total_ais / num_layers
@@ -122,6 +136,8 @@ class CompositeLoss(nn.Module):
             total_l1 = total_l1 / num_layers
             total_cross_bus_red = total_cross_bus_red / num_layers
             total_redundancy = total_redundancy / num_layers
+            if num_layers > 1:
+                total_inter_layer_syn = total_inter_layer_syn / (num_layers - 1)
 
         lambda_te = lambdas.get("te", 0.0)
         total_loss = (
@@ -129,6 +145,7 @@ class CompositeLoss(nn.Module):
             - lambdas.get("ais", 0.0) * total_ais
             - lambda_te * total_te
             - lambdas.get("synergy", 0.0) * total_synergy
+            - lambdas.get("inter_layer_synergy", 0.0) * total_inter_layer_syn
             + (lambda_te * 0.1) * total_l1
             + (lambda_te * 2.0) * total_cross_bus_red
         )
@@ -139,6 +156,7 @@ class CompositeLoss(nn.Module):
             "ais": total_ais,
             "te": total_te,
             "synergy": total_synergy,
+            "inter_layer_syn": total_inter_layer_syn,
             "redundancy": total_redundancy,
             "l1_cost": total_l1,
             "cross_bus_red": total_cross_bus_red,

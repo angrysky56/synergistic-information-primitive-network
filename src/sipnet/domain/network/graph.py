@@ -1,7 +1,7 @@
 """
 Synergistic Information Primitive Network (SIP-Net) graph implementation.
 """
-from typing import Any
+from typing import Any, Optional
 
 import torch
 import torch.nn as nn
@@ -28,6 +28,9 @@ class SIPNet(nn.Module):
         num_synergy_hubs: int = 1,
         num_parallel_buses: int = 1,
         use_embedding: bool = False,
+        hf_model_name: Optional[str] = None,
+        hf_freeze: bool = True,
+        dropout: float = 0.1,
     ) -> None:
         """
         Initializes the SIPNet hierarchy.
@@ -41,13 +44,31 @@ class SIPNet(nn.Module):
             num_synergy_hubs: Number of synergy hubs per layer.
             num_parallel_buses: Number of parallel buses (FF/TD) per layer.
             use_embedding: Whether to use an embedding layer as the sensory encoder.
+            hf_model_name: Optional name of a Hugging Face model to use for embeddings.
+            hf_freeze: Whether to freeze the Hugging Face model parameters.
+            dropout: Dropout rate for noise-resilient projection.
         """
         super().__init__()
         self.use_embedding = use_embedding
+        self.hf_model_name = hf_model_name
 
         # 1. Sensory Encoder
         self.encoder: nn.Module
-        if self.use_embedding:
+        if self.hf_model_name:
+            from transformers import AutoModel
+            model_name = self.hf_model_name
+            self.hf_model = AutoModel.from_pretrained(model_name)
+            if hf_freeze:
+                for param in self.hf_model.parameters():
+                    param.requires_grad = False
+            # Get embedding dimension from HF model config
+            hf_dim = self.hf_model.config.hidden_size
+            self.encoder = nn.Sequential(
+                nn.Linear(hf_dim, hidden_dim),
+                nn.Dropout(dropout),
+                nn.LayerNorm(hidden_dim)
+            )
+        elif self.use_embedding:
             self.encoder = nn.Embedding(
                 num_embeddings=input_dim, embedding_dim=hidden_dim
             )
@@ -78,51 +99,55 @@ class SIPNet(nn.Module):
 
         Args:
             x_t: Input tensor for the current time step.
-
-        Returns:
-            A dictionary containing logits and intermediate layer outputs.
+                 If hf_model_name is set, x_t should be the output of HF model.
         """
         encoded_sensory = self.encoder(x_t)
 
         current_input = encoded_sensory
         layer_outputs = []
 
-        # Pass data forward through the hierarchy
-        for layer in self.layers:
+        # Pass data forward through the hierarchy with residual connections
+        for i, layer in enumerate(self.layers):
             if not isinstance(layer, SIPLayer):
                 continue
             out = layer.forward_step(current_input)
             layer_outputs.append(out)
-            # The final representation of Layer L becomes the input for Layer L+1
-            current_input = out["final_rep"]
+            
+            # Residual connection
+            current_input = out["final_rep"] + current_input
 
         logits = self.decoder(current_input)
 
         return {
             "logits": logits,
-            "layer_outputs": layer_outputs,  # Export all nested state matrices for loss tracking
-            "prev_layer_outputs": None,  # Linked during training
+            "layer_outputs": layer_outputs,
+            "prev_layer_outputs": None,
         }
 
     def forward(self, x_seq: torch.Tensor) -> list[StepOutput]:
         """
         Processes a sequence of sensory inputs over time.
-
-        Args:
-            x_seq: Input sequence tensor of shape (batch, sequence_length, ...).
-
-        Returns:
-            A list of result dictionaries for each time step.
         """
-        seq_len = x_seq.size(1)
+        batch_size, seq_len = x_seq.size(0), x_seq.size(1)
+        
+        # Pre-calculate HF embeddings if necessary
+        if self.hf_model_name:
+            # We assume x_seq is (batch, seq_len) token IDs
+            # This is done once for the whole sequence for efficiency
+            with torch.no_grad() if not self.hf_model.training else torch.enable_grad():
+                hf_outputs = self.hf_model(x_seq).last_hidden_state # (batch, seq_len, hf_dim)
+            x_seq_processed = hf_outputs
+        else:
+            x_seq_processed = x_seq
+
         outputs_over_time = []
         self.reset_memory()
 
         for t in range(seq_len):
-            if self.use_embedding:
-                x_t = x_seq[:, t]
+            if self.hf_model_name or not self.use_embedding:
+                x_t = x_seq_processed[:, t, :]
             else:
-                x_t = x_seq[:, t, :]
+                x_t = x_seq_processed[:, t]
             outputs_over_time.append(self.forward_step(x_t))
 
         return outputs_over_time
